@@ -1,0 +1,77 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0", 
+    "tasks": [
+        {
+            "label": "启动bochs",
+            "type": "shell",
+            "linux":{
+                "command": [
+                    "bochs -q -f bochsrc",
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceRoot}"
+            }
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "linux":{
+                "command": [
+                    "make clean",
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceRoot}"
+            }
+        },
+        {
+            "label": "执行make",
+            "type": "shell",
+            "linux":{
+                "command": [
+                    "make all",
+                    
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceRoot}"
+            }
+
+        },
+        {
+            "label": "写映像文件",
+            "type": "shell",
+            "command": "bash ${workspaceRoot}/script/img-write-osx.sh",
+            "linux":{
+                "command": "bash ${workspaceRoot}/script/img-write-linux.sh"
+            },
+            "options": {
+                "cwd": "${workspaceRoot}/image/"
+            }
+        },
+        {
+            "label": "启动qemu",
+            "type": "shell",
+            //"command": "bash ${workspaceRoot}/script/qemu-debug-osx.sh",
+            "linux":{
+                "command": "bash ${workspaceRoot}/script/qemu-debug-linux.sh",
+            },
+            "options": {
+                "cwd": "${workspaceRoot}/image/"
+            }
+        },
+        {
+            "label": "调试准备",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "执行make",
+                "写映像文件",
+                "启动qemu",
+                //"启动bochs",
+            ],
+        }
+    ]
+}

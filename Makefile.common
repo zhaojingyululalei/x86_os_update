@@ -1,0 +1,44 @@
+
+TOOL_PREFIX := x86_64-linux-gnu-
+
+CC := ${TOOL_PREFIX}gcc
+
+#-fno-asynchronous-unwind-tables 一种 DWARF 的信息，用于调试，获得调用异常；
+#-fno-pic 禁止生成位置无关的代码 call  __x86.get_pc_thunk.ax;该指令会存储ip到eax，然后获取符号表的相对偏移，从而得到符号相对位置
+
+CFLAGS := -g -c -O0 -m32
+CFLAGS+= -fno-builtin			# 不需要 gcc 内置函数
+CFLAGS+= -nostdinc				# 不需要标准头文件
+CFLAGS+= -fno-pic				# 不需要位置无关的代码  position independent code
+CFLAGS+= -fno-pie				# 不需要位置无关的可执行程序 position independent executable
+CFLAGS+= -nostdlib				# 不需要标准库
+CFLAGS+= -fno-stack-protector	# 不需要栈保护
+
+#汇编器配置
+AS = ${TOOL_PREFIX}as
+ASFLAGS := -g -m32
+
+#连接器
+LD := ${TOOL_PREFIX}ld -m elf_i386
+
+#归档
+AR = ${TOOL_PREFIX}ar
+
+#其他工具
+OBJCOPY_TOOL := ${TOOL_PREFIX}objcopy
+OBJDUMP_TOOL := ${TOOL_PREFIX}objdump
+READELF_TOOL := ${TOOL_PREFIX}readelf
+
+
+
+
+
+
+
+
+
+
+
+
+
+

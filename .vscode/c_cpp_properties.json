@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "name": "linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/source/include/**"
+            ]
+        }
+    ],
+    "version": 4
+}

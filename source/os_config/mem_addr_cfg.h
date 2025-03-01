@@ -1,0 +1,24 @@
+#ifndef __MEM_ADDR_CFG_H
+#define __MEM_ADDR_CFG_H
+
+
+#define MEM_PAGE_SIZE 4096
+#define MEM_TOTAL_SIZE  (128*1024*1024)
+
+#define KERNEL_SIZE (32*1024*1024)
+
+#define BOOTLOADER_SEG 0x0
+
+/*物理地址设计*/
+#define BOOT_START_ADDR_REL  0x7c00
+#define LOAD_START_ADDR_REL  0x8000 
+#define KERNEL_START_ADDR_REL   0x100000
+#define STACK_KERNEL_TOP_ADDR   0x7000
+
+
+/*虚拟地址设计*/
+#define USR_STACK_TOP   0xFFFFF000
+#define USR_ENTRY_BASE  0x80000000  //用户态起始虚拟地址
+#define USR_HEAP_BASE   0x90000000
+
+#endif
