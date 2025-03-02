@@ -17,6 +17,8 @@ _start:
 
 	mov $STACK_KERNEL_TOP_ADDR,%sp
 
+
+
 	
 
 # 设置屏幕模式为文本模式，清除屏幕

@@ -149,20 +149,31 @@ static void itoa_with_padding(char *buf, uint32_t num, int base, int width, int 
     *buf_ptr = '\0'; // 添加字符串结束符
 }
 
-void sprintf(char *buffer, const char *fmt, ...) {
+int sprintf(char *buffer, const char *fmt, ...) {
+    int ret;
     va_list args;
     va_start(args, fmt);
-    vsprintf(buffer, fmt, args);
+    ret = vsprintf(buffer, fmt, args);
     va_end(args);
+    return ret;
+}
+int snprintf(char * buffer, int buf_size,const char * fmt, ...){
+    int ret;
+    va_list args;
+    va_start(args, fmt);
+    ret = vsnprintf(buffer, buf_size,fmt, args);
+    va_end(args);
+    return ret;
 }
 
-void vsprintf(char *buffer, const char *fmt, va_list args) {
+
+int vsprintf(char *buffer, const char *fmt, va_list args) {
     char *buf_ptr = buffer;
     const char *fmt_ptr = fmt;
 
     while (*fmt_ptr) {
         if (*fmt_ptr == '%' && *(fmt_ptr + 1) != '%') {
-            fmt_ptr++;  // Skip '%'
+            fmt_ptr++;  // 跳过 '%'
 
             // 解析宽度和填充
             int width = 0;
@@ -226,6 +237,115 @@ void vsprintf(char *buffer, const char *fmt, va_list args) {
     }
 
     *buf_ptr = '\0'; // 确保字符串以 NULL 结尾
+
+    // 返回写入缓冲区的字节数
+    return (int)(buf_ptr - buffer);
+}
+int vsnprintf(char * buffer, int buf_len,const char * fmt, va_list args){
+    if (buffer == NULL || fmt == NULL || buf_len <= 0) {
+        return -1;  // 参数检查
+    }
+
+    char *buf_ptr = buffer;
+    const char *fmt_ptr = fmt;
+    int remaining = buf_len - 1;  // 剩余可用空间（为终止符预留）
+
+    while (*fmt_ptr && remaining > 0) {
+        if (*fmt_ptr == '%' && *(fmt_ptr + 1) != '%') {
+            fmt_ptr++;  // 跳过 '%'
+
+            // 解析宽度和填充
+            int width = 0;
+            int zero_padding = 0;
+            if (*fmt_ptr == '0') {
+                zero_padding = 1;
+                fmt_ptr++;
+            }
+            while (*fmt_ptr >= '0' && *fmt_ptr <= '9') {
+                width = width * 10 + (*fmt_ptr - '0');
+                fmt_ptr++;
+            }
+
+            // 解析格式化符号
+            switch (*fmt_ptr) {
+                case 'd': {
+                    int num = va_arg(args, int);
+                    char temp_buf[32];
+                    itoa_with_padding(temp_buf, num, 10, width, zero_padding);
+                    int len = strlen(temp_buf);
+
+                    if (len > remaining) {
+                        len = remaining;  // 截断
+                    }
+                    strncpy(buf_ptr, temp_buf, len);
+                    buf_ptr += len;
+                    remaining -= len;
+                    break;
+                }
+                case 'x': {
+                    unsigned int num = va_arg(args, unsigned int);
+                    char temp_buf[32];
+                    itoa_with_padding(temp_buf, num, 16, width, zero_padding);
+                    int len = strlen(temp_buf);
+
+                    if (len > remaining) {
+                        len = remaining;  // 截断
+                    }
+                    strncpy(buf_ptr, temp_buf, len);
+                    buf_ptr += len;
+                    remaining -= len;
+                    break;
+                }
+                case 's': {
+                    const char *str = va_arg(args, const char *);
+                    int len = strlen(str);
+
+                    // 填充宽度
+                    if (width > len) {
+                        while (len < width && remaining > 0) {
+                            *buf_ptr++ = ' ';
+                            remaining--;
+                            len++;
+                        }
+                    }
+
+                    if (len > remaining) {
+                        len = remaining;  // 截断
+                    }
+                    strncpy(buf_ptr, str, len);
+                    buf_ptr += len;
+                    remaining -= len;
+                    break;
+                }
+                case 'c': {
+                    char c = (char) va_arg(args, int);
+                    if (remaining > 0) {
+                        *buf_ptr++ = c;
+                        remaining--;
+                    }
+                    break;
+                }
+                default: {
+                    if (remaining > 0) {
+                        *buf_ptr++ = *fmt_ptr;
+                        remaining--;
+                    }
+                    break;
+                }
+            }
+        } else {
+            if (remaining > 0) {
+                *buf_ptr++ = *fmt_ptr;
+                remaining--;
+            }
+        }
+        fmt_ptr++;
+    }
+
+    *buf_ptr = '\0';  // 确保字符串以 NULL 结尾
+
+    // 返回写入缓冲区的字节数
+    return (int)(buf_ptr - buffer);
 }
 char* strchr(const char *str, int c) {
     // 将字符 c 转换为 char 类型

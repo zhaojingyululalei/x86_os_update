@@ -9,7 +9,11 @@
 			"stdarg.h": "c",
 			"test.h": "c",
 			"serial.h": "c",
-			"string.h": "c"
+			"string.h": "c",
+			"cpu.h": "c",
+			"types.h": "c",
+			"time.h": "c",
+			"8259a.h": "c"
 		}
 	}
 }

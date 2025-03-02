@@ -24,7 +24,7 @@ void dbg_print(int level, const char *file, const char *func, int line, const ch
     // 组装文件、函数和行号信息
     if (level != DBG_LEVEL_INFO)
     {
-        sprintf(str_buf, "[%s] in file:%s, func:%s, line:%d: \r\n", title[level], file, func, line);
+        sprintf(str_buf, "[%s] in file:%s, func:%s, line:%d: ", title[level], file, func, line);
         offset = strlen(str_buf);
     }
 

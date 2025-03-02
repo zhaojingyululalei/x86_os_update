@@ -47,3 +47,12 @@
         - loader中启用临时页表，4MB的页，覆盖全部内存128MB，平摊模型
         - 进入kernel后，再次配置页表，改为4KB的页。
         - 每个进程可以维护4GB的虚拟空间，共4GB/4KB = 1M个页
+
+# 中断
+    - IDT表  lidt指令加载IDT表  中断门注册中断函数
+    - int指令
+        int num；压入eflags，cs，ip  ，
+        3特权级想用int，得设置好CPL和DPL，或者异步中断，直接还会先压入ss3和esp3
+        实模式下，中断表中低2字节存offset，高2字节存seg
+        保护模式下，32位全部存offset
+    - iret 中断返回指令，弹出 ip cs eflags

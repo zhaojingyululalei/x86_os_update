@@ -14,7 +14,7 @@ LIB := $(shell find $(LIBDIR) -name '*.a')
 LIBS := $(patsubst %,-L%,${LIBDIR})
 
 LFLAGS := $(patsubst lib%.a,-l%,${LIB})
-LFLAGS += -Tboot.ld
+LFLAGS += -Ttext=0x7c00
 
 # 路径配置
 BUILD := ../../build
