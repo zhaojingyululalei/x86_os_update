@@ -9,12 +9,18 @@
 #include "time/rtc.h"
 /*测试函数*/
 #include "kernel_test.h"
+#include "mem/bitmap.h"
 static void test(void)
 {
     int ret = 0;
     
     
-    rtc_test();
+    bitmap_test();
+    while (1)
+    {
+        ;
+    }
+    
 }
 /**
  * @brief 内核初始化
@@ -26,6 +32,9 @@ void kernel_init(boot_info_t *boot_info)
     clock_init();
     time_init();
     rtc_init();
+    //暂时用位图分配内存过度，分配页表，分配进程PCB都用位图分
+    //页和 进程模块都弄好了，再写伙伴系统
+    mm_bitmap_init(boot_info);
 
     irq_enable_global();
     test();

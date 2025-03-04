@@ -13,7 +13,9 @@
 			"cpu.h": "c",
 			"types.h": "c",
 			"time.h": "c",
-			"8259a.h": "c"
+			"8259a.h": "c",
+			"dbg_cfg.h": "c",
+			"algrithm.h": "c"
 		}
 	}
 }

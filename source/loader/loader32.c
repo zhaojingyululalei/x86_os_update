@@ -3,30 +3,19 @@
 #include "cpu_instr.h"
 #include "elf.h"
 #include "cpu_cfg.h"
+#include "printk32.h"
 #include "boot_info.h"
+#include "console32.h"
 static boot_info_t boot_info;
-static uint8_t* ARDS_BUFFER;
+static uint8_t *ARDS_BUFFER;
 extern void protected_mode(void);
-/**
- * BIOS下显示字符串
- */
-static  void show_msg (const char * msg) {
-    char c;
 
-	// 使用bios写显存，持续往下写
-	while ((c = *msg++) != '\0') {
-		__asm__ __volatile__(
-				"mov $0xe, %%ah\n\t"
-				"mov %[ch], %%al\n\t"
-				"int $0x10"::[ch]"r"(c));
-	}
-}
 /**
  * 使用LBA48位模式读取磁盘
  */
 static void read_disk(int sector, int sector_count, uint32_t addr)
 {
-    uint8_t* buf = (uint8_t*)addr;
+    uint8_t *buf = (uint8_t *)addr;
     outb(0x1F6, (uint8_t)(0xE0));
 
     outb(0x1F2, (uint8_t)(sector_count >> 8));
@@ -147,46 +136,52 @@ void enable_page_mode(void)
     write_cr0(read_cr0() | CR0_PG);
 }
 
-
-
-
-void get_boot_info(void){
-    ARDS_t* adrs = (ARDS_t*)ARDS_BUFFER;
+void get_boot_info(void)
+{
+    ARDS_t *adrs = (ARDS_t *)ARDS_BUFFER;
     int idx = 0;
     while (adrs->Type)
     {
-        boot_info.ram_region_cfg[idx++].size = adrs->LengthLow;
-        boot_info.ram_region_cfg[idx++].start = adrs->BaseAddrLow;
-        boot_info.ram_region_count++;
+        if (adrs->Type == 0x1)
+        {
+            boot_info.ram_region_cfg[idx].size = adrs->LengthLow;
+            boot_info.ram_region_cfg[idx].start = adrs->BaseAddrLow;
+            boot_info.ram_region_count++;
+            idx++;
+        }
         adrs++;
     }
-
-    
 }
 /**
  * 从磁盘上加载内核
  */
-void load_kernel(uint32_t gdt_base_addr,uint32_t ARDS_base_addr)
+void load_kernel(uint32_t gdt_base_addr, uint32_t ARDS_base_addr)
 {
-
+    
+    console_init();
     boot_info.gdt_base_addr = gdt_base_addr;
-    ARDS_BUFFER = (uint8_t*)ARDS_base_addr;
+    ARDS_BUFFER = (uint8_t *)ARDS_base_addr;
+
+    printk("Reading kernel image file,please wait for a moment...\r\n");
 
     // 读取的扇区数一定要大一些，保不准kernel.elf大小会变得很大
-    int sector_cnt = 1024*1024/DISK_SECTOR_SIZE;
-    read_disk(100, 1024, SYS_KERNEL_LOAD_ADDR);
-
+    int sector_cnt = LOAD_KERNEL_SIZE/ DISK_SECTOR_SIZE;
+    read_disk(100, sector_cnt, SYS_KERNEL_LOAD_ADDR);
     // 解析ELF文件，并通过调用的方式，进入到内核中去执行，同时传递boot参数
     // 临时将elf文件先读到SYS_KERNEL_LOAD_ADDR处，再进行解析
     uint32_t kernel_entry = reload_elf_file((uint8_t *)SYS_KERNEL_LOAD_ADDR);
-    if (kernel_entry == 0 || kernel_entry!=KERNEL_START_ADDR_REL)
+    if (kernel_entry == 0 || kernel_entry != KERNEL_START_ADDR_REL)
     {
+        printk("kernel image resolve fail,os die\r\n");
         die(-1);
     }
     get_boot_info();
-    if(boot_info.kernel_size >= sector_cnt*DISK_SECTOR_SIZE){
-        show_msg("kernel size err:kernel size > loader loaded the kernel size,need to adjust param sector_cnt\n");
+    if (boot_info.kernel_size >= sector_cnt * DISK_SECTOR_SIZE)
+    {
+        printk("Please increase the number of sectors for loading the kernel, as the kernel affects files too large and is not fully loaded\r\n");
+        printk("in file cpu_cfg.h,modify the define --- LOAD_KERNEL_SIZE\r\n");
     }
+    printk("kenel image loading success!\r\n");
     // 开启分页机制
     enable_page_mode();
 
@@ -194,4 +189,5 @@ void load_kernel(uint32_t gdt_base_addr,uint32_t ARDS_base_addr)
     for (;;)
     {
     }
+    
 }

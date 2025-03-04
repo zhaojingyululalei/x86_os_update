@@ -10,6 +10,7 @@
 typedef struct _boot_info_t {
     uint32_t gdt_base_addr;
     uint32_t kernel_size;
+    uint32_t mem_size;
     struct {
         uint32_t start;
         uint32_t size;
