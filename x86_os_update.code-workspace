@@ -15,7 +15,10 @@
 			"time.h": "c",
 			"8259a.h": "c",
 			"dbg_cfg.h": "c",
-			"algrithm.h": "c"
+			"algrithm.h": "c",
+			"printk.h": "c",
+			"pdt.h": "c",
+			"cpu_cfg.h": "c"
 		}
 	}
 }

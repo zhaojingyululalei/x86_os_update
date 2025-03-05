@@ -17,5 +17,6 @@ typedef unsigned int size_t;
 #define NULL ((void*)0)
 
 typedef uint32_t ph_addr_t;
+typedef uint32_t vm_addr_t;
 
 #endif

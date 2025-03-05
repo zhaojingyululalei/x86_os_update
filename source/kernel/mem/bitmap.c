@@ -5,6 +5,9 @@
 #include "cpu_cfg.h"
 #include "cpu_instr.h"
 #include "algrithm.h"
+extern uint8_t s_ro; // 只读区起始地址
+extern uint8_t s_rw; // 读写区起始地址
+extern uint8_t e_rw; // 读写区结束地址
 // 全局位图对象
 static mm_bitmap_t mm_bitmap;
 static void caculate_mem_size(boot_info_t* boot_info){
@@ -62,6 +65,9 @@ static ph_addr_t bit_index_to_addr(int bit_index) {
  */
 void mm_bitmap_init(boot_info_t* boot_info) {
     
+    ph_addr_t ph_s_ro = &s_ro;
+    ph_addr_t ph_s_rw = &s_rw;
+    ph_addr_t ph_e_rw = &e_rw;
     //位图所管理的内存，必须比实际内存要大
     if(MM_BITMAP_MAP_SIZE_BYTE*8*MEM_PAGE_SIZE < boot_info->mem_size){
         dbg_error("Bitmap is too small to manage the entire memory!\r\n");
@@ -76,7 +82,7 @@ void mm_bitmap_init(boot_info_t* boot_info) {
     //设置位图所要管理的内存区域,从kenrel起始地址+kernel_size开始管理,而且4KB对齐
     int j = 0;//bitmap.region下标
     //内核末尾4KB对齐
-    uint32_t mem_start = align_up(KERNEL_START_ADDR_REL + boot_info->kernel_size,MEM_PAGE_SIZE);
+    uint32_t mem_start = ph_e_rw;
     //遍历boot_info每个区域，如果在bitmap管理范围内就加进去
     for (int i = 0; i < boot_info->ram_region_count; i++)
     {
@@ -118,12 +124,15 @@ void mm_bitmap_init(boot_info_t* boot_info) {
  * @brief 分配一页
  */
 ph_addr_t mm_bitmap_alloc_page() {
+    ph_addr_t ret;
     for (int i = 0; i < MM_BITMAP_MAP_SIZE_BYTE * 8; i++) {
         int byte_index = i / 8;
         int bit_index = i % 8;
         if (!(mm_bitmap.map[byte_index] & (1 << bit_index))) {
             mm_bitmap.map[byte_index] |= (1 << bit_index);  // 标记为已占用
-            return bit_index_to_addr(i);
+            ret = bit_index_to_addr(i);
+            memset((void*)ret,0,MEM_PAGE_SIZE);
+            return ret;
         }
     }
     dbg_warning("out of memory:bit map can`t alloc one page\r\n");
@@ -140,12 +149,14 @@ void mm_bitmap_free_page(ph_addr_t addr) {
     int byte_index = bit_index / 8;
     int bit_offset = bit_index % 8;
     mm_bitmap.map[byte_index] &= ~(1 << bit_offset);  // 标记为未占用
+    memset((void*)addr,0,MEM_PAGE_SIZE);
 }
 
 /**
  * @brief 分配多页
  */
 ph_addr_t mm_bitmap_alloc_pages(uint32_t num_pages) {
+    ph_addr_t ret;
     int start_bit_index = -1;
     int consecutive_free = 0;
 
@@ -164,7 +175,9 @@ ph_addr_t mm_bitmap_alloc_pages(uint32_t num_pages) {
                     int bit_offset = j % 8;
                     mm_bitmap.map[byte_idx] |= (1 << bit_offset);
                 }
-                return bit_index_to_addr(start_bit_index);
+                ret = bit_index_to_addr(start_bit_index);
+                memset((void*)ret,0,MEM_PAGE_SIZE*num_pages);
+                return ret;
             }
         } else {
             start_bit_index = -1;
@@ -189,6 +202,7 @@ void mm_bitmap_free_pages(ph_addr_t start_addr, uint32_t num_pages) {
         int bit_offset = i % 8;
         mm_bitmap.map[byte_index] &= ~(1 << bit_offset);  // 标记为未占用
     }
+    memset((void*)start_addr,0,MEM_PAGE_SIZE*num_pages);
 }
 
  /**

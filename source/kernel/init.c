@@ -10,12 +10,14 @@
 /*测试函数*/
 #include "kernel_test.h"
 #include "mem/bitmap.h"
+#include "mem/memory.h"
+
 static void test(void)
 {
     int ret = 0;
     
     
-    bitmap_test();
+    link_script_test();
     while (1)
     {
         ;
@@ -35,6 +37,9 @@ void kernel_init(boot_info_t *boot_info)
     //暂时用位图分配内存过度，分配页表，分配进程PCB都用位图分
     //页和 进程模块都弄好了，再写伙伴系统
     mm_bitmap_init(boot_info);
+    memory_init();
+    
+
 
     irq_enable_global();
     test();

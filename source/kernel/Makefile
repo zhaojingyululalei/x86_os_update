@@ -15,7 +15,7 @@ LIB := $(notdir $(LIB))
 LIBS := $(patsubst %,-L%,${LIBDIR})
 
 LIBS += $(patsubst lib%.a,-l%,${LIB})
-LFLAGS += -Ttext=0x100000
+LFLAGS += -Tkernel.lds
 
 # 路径配置
 BUILD := ../../build
