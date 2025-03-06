@@ -6,9 +6,9 @@
 #include "printk32.h"
 #include "boot_info.h"
 #include "console32.h"
+#include "cpu_info.h"
 static boot_info_t boot_info;
 static uint8_t *ARDS_BUFFER;
-extern void protected_mode(void);
 
 /**
  * 使用LBA48位模式读取磁盘
@@ -146,11 +146,14 @@ void get_boot_info(void)
         {
             boot_info.ram_region_cfg[idx].size = adrs->LengthLow;
             boot_info.ram_region_cfg[idx].start = adrs->BaseAddrLow;
+            boot_info.mem_size += adrs->LengthLow;
             boot_info.ram_region_count++;
             idx++;
         }
         adrs++;
     }
+
+    get_cpu_info(&boot_info.cpu_info);
 }
 /**
  * 从磁盘上加载内核
@@ -175,16 +178,17 @@ void load_kernel(uint32_t gdt_base_addr, uint32_t ARDS_base_addr)
         printk("kernel image resolve fail,os die\r\n");
         die(-1);
     }
-    get_boot_info();
-    if (boot_info.kernel_size >= sector_cnt * DISK_SECTOR_SIZE)
+    //由于内存对齐，可能有一些空隙，5KB就是留了一些余量，确保内核完全加载进来
+    if (boot_info.kernel_size+5*1024 >= sector_cnt * DISK_SECTOR_SIZE)
     {
         printk("Please increase the number of sectors for loading the kernel, as the kernel affects files too large and is not fully loaded\r\n");
         printk("in file cpu_cfg.h,modify the define --- LOAD_KERNEL_SIZE\r\n");
+        die(-1);
     }
     printk("kenel image loading success!\r\n");
+    get_boot_info();
     // 开启分页机制
     enable_page_mode();
-
     ((void (*)(boot_info_t *))kernel_entry)(&boot_info);
     for (;;)
     {

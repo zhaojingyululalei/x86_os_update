@@ -347,6 +347,9 @@ int vsnprintf(char * buffer, int buf_len,const char * fmt, va_list args){
     // 返回写入缓冲区的字节数
     return (int)(buf_ptr - buffer);
 }
+/**
+ * @brief 找到字符c第一次出现的位置
+ */
 char* strchr(const char *str, int c) {
     // 将字符 c 转换为 char 类型
     char target = (char)c;
@@ -362,7 +365,9 @@ char* strchr(const char *str, int c) {
     // 如果没找到目标字符，返回 NULL
     return NULL;
 }
-
+/**
+ * @brief 按delim分割字符串
+ */
 char* strtok(char *str, const char *delim) {
     static char *current_pos = NULL;
     

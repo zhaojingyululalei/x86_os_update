@@ -175,7 +175,8 @@ ARDS_BUFFER: .space ARD_SIZE*ARD_MAX_NR
 
     .code32
     .text
-    .extern load_kernel
+    .extern load_kernel printk
+    .global get_cpu_manufacture_info,cpu_info
 protected_mode:
     mov $SELECTOR_KERNEL_DATA_SEG,%ax
     mov %ax, %ds
@@ -186,7 +187,48 @@ protected_mode:
 
     movl $STACK_KERNEL_TOP_ADDR,%esp
 
+  
+
+
     push %edx  # ADRS_BUFF
     push %ebx  # gdt_table
     call load_kernel
     jmp .
+
+get_cpu_manufacture_info:
+    xor %eax,%eax
+
+    mov $0x80000000,%eax # 检查功能号
+    cpuid
+    cmp $0x80000008,%eax     # 我用到的最大功能号就是800000008,比一下，看看最大功能号能不能支持到0x80000008
+    jb get_cpu_info_err # 不支持跳转到错误处理
+    # 获取CPU的品牌信息
+    movl $0x80000002, %eax      
+    cpuid                        
+    movl %eax, cpu_info + 4 * 0  
+    movl %ebx, cpu_info + 4 * 1  
+    movl %ecx, cpu_info + 4 * 2  
+    movl %edx, cpu_info + 4 * 3  
+
+    movl $0x80000003, %eax       
+    cpuid                        
+    movl %eax, cpu_info + 4 * 4  
+    movl %ebx, cpu_info + 4 * 5  
+    movl %ecx, cpu_info + 4 * 6  
+    movl %edx, cpu_info + 4 * 7  
+
+    movl $0x80000004, %eax       
+    cpuid                        
+    movl %eax, cpu_info + 4 * 8  
+    movl %ebx, cpu_info + 4 * 9  
+    movl %ecx, cpu_info + 4 * 10 
+    movl %edx, cpu_info + 4 * 11 
+    ret
+
+get_cpu_info_err:
+    push $cpu_info_err
+    call printk
+    jmp .
+    .data
+cpu_info:.space 256
+cpu_info_err: .asciz "cpuid instr not suport function num 0x80000008!\r\n"

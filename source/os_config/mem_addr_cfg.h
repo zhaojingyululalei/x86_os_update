@@ -4,6 +4,8 @@
 
 #define MEM_PAGE_SIZE 4096
 #define MEM_TOTAL_SIZE  (128*1024*1024)
+#define LOAD_KERNEL_SIZE    (2*1024*1024) //从磁盘上加载2MB大小的内核，以后不够了再加
+#define VM_MEM_TOTAL_SIZE   (4*1024*1024*1024) //虚拟内存大小4GB
 
 #define KERNEL_SIZE (32*1024*1024)
 

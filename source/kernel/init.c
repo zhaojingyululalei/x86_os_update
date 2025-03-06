@@ -12,12 +12,13 @@
 #include "mem/bitmap.h"
 #include "mem/memory.h"
 
+boot_info_t* os_info;
 static void test(void)
 {
     int ret = 0;
     
     
-    link_script_test();
+    APCI_test();
     while (1)
     {
         ;
@@ -29,6 +30,7 @@ static void test(void)
  */
 void kernel_init(boot_info_t *boot_info)
 {
+    os_info = boot_info;
     serial_init();
     cpu_init();
     clock_init();

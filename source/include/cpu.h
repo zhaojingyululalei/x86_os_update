@@ -64,6 +64,7 @@ typedef union _gate_desc_t
 
 } gate_desc_t;
 #pragma pack()
+
 gate_desc_t* idt_get_entry(int irq_num);
 void cpu_init(void);
 #endif

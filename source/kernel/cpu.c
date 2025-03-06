@@ -5,6 +5,7 @@
 #include "printk.h"
 #include "cpu_cfg.h"
 #include "irq/irq.h"
+#include "apci.h"
 /**
  * gdt表首地址
  */
@@ -38,11 +39,14 @@ gate_desc_t* idt_get_entry(int irq_num)
     return &idt_table[irq_num];
 }
 
+
 /**
  * @brief 主要初始化了gdt和idt表
  */
 void cpu_init(void){
-    gdt_init();
-    idt_init();
-    init_pic();
+    gdt_init(); //安装gdt表
+    idt_init(); //安装异常
+    init_pic(); //初始化8259
+    apci_init();//获取apci信息
+    return;
 }

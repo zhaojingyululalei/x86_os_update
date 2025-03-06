@@ -5,9 +5,7 @@
 #include "blk_cfg.h"
 #define OS_32   32
 #define OS_64   64
-//内存
-#define MEM_PAGE_SIZE   4096
-#define LOAD_KERNEL_SIZE    (2*1024*1024) //从磁盘上加载2MB大小的内核，以后不够了再加
+
 //GDT描述符格式
 #define GDT_DESC_LIMIT_0_15_POS    0
 #define GDT_DESC_BASE_0_15_POS     16

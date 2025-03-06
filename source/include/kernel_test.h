@@ -7,5 +7,6 @@ extern void printk_test(void);
 extern void time_test(void);
 extern void rtc_test(void);
 extern void bitmap_test(void);
-void link_script_test(void);
+extern void link_script_test(void);
+extern void APCI_test(void);
 #endif
