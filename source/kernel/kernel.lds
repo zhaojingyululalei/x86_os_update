@@ -6,7 +6,8 @@ SECTIONS
     PROVIDE(s_ro = .);
     /*只读*/
     .text : {
-		*(.text)
+		*(.text.start) 
+    *(.text)
 	}
 	.rodata : {
 		*(.rodata)

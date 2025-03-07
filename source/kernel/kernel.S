@@ -1,5 +1,5 @@
 
-    .text
+    .section .text.start
 	#include "cpu_cfg.h"
     .extern kernel_init
     .global _start

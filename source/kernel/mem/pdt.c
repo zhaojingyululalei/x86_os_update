@@ -3,9 +3,10 @@
 #include "printk.h"
 #include "algrithm.h"
 #include "mem/bitmap.h"
+#include "string.h"
 // 页目录  32位系统，每个页表表项32位 4字节  总共有4096/(32/8) = 1024项
 
-page_entry_t page_table[PAGE_TABLE_ENTRY_CNT]__attribute__((aligned(4096)));
+page_entry_t page_table[PAGE_TABLE_ENTRY_CNT] __attribute__((aligned(4096)));
 
 /**
  * @brief 传入虚拟地址，获取某级页表的索引
@@ -31,7 +32,7 @@ static int get_pdt_index(vm_addr_t addr, int level)
  */
 static page_entry_t *get_page_entry(ph_addr_t pdt_base, int idx)
 {
-   
+
     ASSERT(idx >= 0 && idx < PAGE_TABLE_ENTRY_CNT);
     page_entry_t *pdt = (page_entry_t *)pdt_base;
     return pdt + idx;
@@ -69,7 +70,7 @@ static int pdt_set_one_entry(vm_addr_t vm_addr, ph_addr_t ph_addr, uint16_t attr
         return -1;
     }
     pte->val |= attr;
-    pte->phaddr = ph_addr>>12;
+    pte->phaddr = ph_addr >> 12;
     return 0;
 }
 /**
@@ -125,7 +126,7 @@ void debug_print_page_table()
         if (pde_table[pde_idx].present)
         {
             dbg_info("PDE Entry Idx %d:\r\n", pde_idx);
-            dbg_info("PDE_VAL:0x%x\r\n",pde_table[pde_idx].val);
+            dbg_info("PDE_VAL:0x%x\r\n", pde_table[pde_idx].val);
 
             // 获取二级页表基地址
             ph_addr_t pte_base = pde_table[pde_idx].phaddr << 12;
@@ -137,9 +138,27 @@ void debug_print_page_table()
                 if (pte_table[pte_idx].present)
                 {
                     dbg_info("  PTE Entry %d:\r\n", pte_idx);
-                    dbg_info("  PTE VAL: 0x%x\r\n",pte_table[pte_idx].val);
+                    dbg_info("  PTE VAL: 0x%x\r\n", pte_table[pte_idx].val);
                 }
             }
         }
     }
+}
+
+/**
+ * @brief 拷贝内核页表
+ */
+int copy_kernel_pdt(page_entry_t *task_pdt)
+{
+    //地址权限都相同，直接拷贝即可
+    page_entry_t *kernel_pdt = page_table;
+    for (int i = 0; i < 1024; i++)
+    {
+        if (kernel_pdt[i].present)
+        {
+
+            task_pdt[i].val = kernel_pdt[i].val;
+        }
+    }
+    return 0;
 }

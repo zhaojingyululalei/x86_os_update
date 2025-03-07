@@ -9,4 +9,6 @@ extern void rtc_test(void);
 extern void bitmap_test(void);
 extern void link_script_test(void);
 extern void APCI_test(void);
+extern void id_pool_test(void);
+extern void task_test(void);
 #endif
