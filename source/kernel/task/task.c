@@ -155,7 +155,10 @@ void jmp_to_usr_mode(void)
  */
 bool is_stack_magic(task_t *task)
 {
-    return strncmp(STACK_MAGIC, task->stack_magic, STACK_MAGIC_LEN) == 0;
+    irq_state_t state= irq_enter_protection();
+    bool ret = strncmp(STACK_MAGIC, task->stack_magic, STACK_MAGIC_LEN) == 0;
+    irq_leave_protection(state);
+    return ret;
 }
 
 /**
@@ -240,7 +243,7 @@ extern void syscall_init(ph_addr_t);
  */
 void task_activate(task_t *task)
 {
-    
+    irq_state_t state = irq_enter_protection();
     // 先切换页表再做检查
     if ((ph_addr_t)task->page_table != (ph_addr_t)read_cr3())
     {
@@ -249,7 +252,7 @@ void task_activate(task_t *task)
     if (!is_stack_magic(task))
     {
         dbg_error("stack magic err\r\n");
-        
+        irq_leave_protection(state);
         return;
     }
 
@@ -264,7 +267,7 @@ void task_activate(task_t *task)
         "xor %%edx,%%edx\n\t"
         "wrmsr\n\t" ::"r"(task->esp0)
         : "eax", "ecx", "edx");
-   
+   irq_leave_protection(state);
     // syscall_init(task->esp0); //将当前要调度的任务 的 esp0写入到msr寄存器中，系统调用自动加载esp和ip
 }
 

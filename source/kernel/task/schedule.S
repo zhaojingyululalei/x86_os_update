@@ -29,7 +29,7 @@ task_switch:
     # 将下一个要执行的进程设置为当前进程
     push %eax
     call set_cur_task
-    add $4,%esp
+    pop %eax
     
     # 从task_t中加载下一个任务的栈指针到esp
     movl (%eax),%esp

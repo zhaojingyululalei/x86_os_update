@@ -40,11 +40,12 @@ void init_task_main(void)
     while (true)
     {
         
-        printf("calc ret = %d\r\n",c);
         for (int i = 0; i < 0xFFFFFF; i++)
         {
-            ;
+            b++;
         }
+        printf("calc ret = %d\r\n",c);
+        
         c++;
         
     }

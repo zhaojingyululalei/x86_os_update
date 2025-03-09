@@ -14,15 +14,17 @@ void task_set_ready(task_t *task)
 
 task_t *cur_task(void)
 {
+    task_t* task;
     irq_state_t state = irq_enter_protection();
-    return task_manager.cur_task;
+    task = task_manager.cur_task;
     irq_leave_protection(state);
+    return task;
 }
 void set_cur_task(task_t *task)
 {
-   
+   irq_state_t state = irq_enter_protection();
     task_manager.cur_task = task;
-    
+    irq_leave_protection(state);
 }
 /**
  * @brief 获取下一个即将执行的任务
@@ -30,6 +32,7 @@ void set_cur_task(task_t *task)
 task_t *next_task(void)
 {
     task_t *cur = cur_task();
+    irq_state_t state = irq_enter_protection();
     
     if (cur == task_manager.idle)
     {
@@ -37,13 +40,13 @@ task_t *next_task(void)
         // 那么就查看就绪队列里有没有任务，有任务，返回第一个即可
         if (list_count(&task_manager.ready_list))
         {
-            
+            irq_leave_protection(state);
             return list_node_parent(task_manager.ready_list.first, task_t, node);
             
         }
         else
         {
-            
+            irq_leave_protection(state);
             // 如果就绪队列里还没任务，就接着执行idle
             return cur;
         }
@@ -52,13 +55,13 @@ task_t *next_task(void)
     list_node_t *next_node = cur->node.next;
     if (next_node)
     {
-        
+        irq_leave_protection(state);
         // 下一个任务存在就返回
         return list_node_parent(next_node, task_t, node);
     }
     else
     {
-        
+        irq_leave_protection(state);
         // 链表里就一个任务
         return cur;
     }
