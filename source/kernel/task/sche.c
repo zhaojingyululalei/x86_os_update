@@ -1,35 +1,49 @@
 #include "task/sche.h"
 #include "printk.h"
-
+#include "irq/irq.h"
+/**
+ * @brief 将任务加入就绪队列
+ */
 void task_set_ready(task_t *task)
 {
+    irq_state_t state = irq_enter_protection();
     task->state = TASK_STATE_READY;
     list_insert_last(&task_manager.ready_list, &task->node);
+    irq_leave_protection(state);
 }
 
 task_t *cur_task(void)
 {
+    irq_state_t state = irq_enter_protection();
     return task_manager.cur_task;
+    irq_leave_protection(state);
 }
 void set_cur_task(task_t *task)
 {
+   
     task_manager.cur_task = task;
+    
 }
+/**
+ * @brief 获取下一个即将执行的任务
+ */
 task_t *next_task(void)
 {
-
     task_t *cur = cur_task();
+    
     if (cur == task_manager.idle)
     {
         // 如果当前任务是空闲任务
         // 那么就查看就绪队列里有没有任务，有任务，返回第一个即可
         if (list_count(&task_manager.ready_list))
         {
+            
             return list_node_parent(task_manager.ready_list.first, task_t, node);
             
         }
         else
         {
+            
             // 如果就绪队列里还没任务，就接着执行idle
             return cur;
         }
@@ -38,20 +52,29 @@ task_t *next_task(void)
     list_node_t *next_node = cur->node.next;
     if (next_node)
     {
+        
         // 下一个任务存在就返回
         return list_node_parent(next_node, task_t, node);
     }
     else
     {
+        
         // 链表里就一个任务
         return cur;
     }
+    
 }
 
+/**
+ * @brief 调度
+ */
 void schedule(void)
 {
     //获取当前任务
     task_t *cur = cur_task();
+    if(!cur){
+        return;//系统还没初始化任务调度
+    }
     if (cur->state != TASK_STATE_RUNNING)
     {
         dbg_error("task state err\r\n");

@@ -33,7 +33,7 @@ task_switch:
     
     # 从task_t中加载下一个任务的栈指针到esp
     movl (%eax),%esp
-
+    xor %eax ,%eax  # 清空返回值
     # 恢复下一个任务的上下文
     pop %edi
     pop %esi

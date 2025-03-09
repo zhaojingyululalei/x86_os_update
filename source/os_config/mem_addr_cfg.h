@@ -16,11 +16,11 @@
 #define LOAD_START_ADDR_REL  0x8000 
 #define KERNEL_START_ADDR_REL   0x100000
 #define STACK_KERNEL_TOP_ADDR   0x7000
-
+#define STACK_SYSCALL_TOP_ADDR  0x2000
 
 /*虚拟地址设计*/
-#define USR_STACK_TOP   0xFFFFF000
+#define USR_STACK_TOP   0xEFFF0000 //用户栈顶地址
 #define USR_ENTRY_BASE  0x80000000  //用户态起始虚拟地址
-#define USR_HEAP_BASE   0x90000000
+#define USR_HEAP_BASE   0x90000000 //用户堆空间地址
 
 #endif

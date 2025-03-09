@@ -38,7 +38,7 @@ static int create_kernel_pdt(ph_addr_t page_table)
     };
     for (int i = 0; i < MEM_KERNEL_MAP_CNT; i++)
     {
-        pdt_set_entry(map[i].start,map[i].start,map[i].size,map[i].attr);
+        pdt_set_entry(page_table,map[i].start,map[i].start,map[i].size,map[i].attr);
     }
     // 之前设置过PSE，现在清0
     // uint32_t cr4 = read_cr4();
@@ -48,6 +48,7 @@ static int create_kernel_pdt(ph_addr_t page_table)
 
     // 开启分页机制
     write_cr0(read_cr0() | CR0_PG);
+    //debug_print_page_table();
     
 }
 void memory_init(void)

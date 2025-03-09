@@ -8,6 +8,7 @@
 extern uint8_t s_ro; // 只读区起始地址
 extern uint8_t s_rw; // 读写区起始地址
 extern uint8_t e_rw; // 读写区结束地址
+extern uint8_t e_init_task_ph;
 // 全局位图对象
 static mm_bitmap_t mm_bitmap;
 static void caculate_mem_size(boot_info_t* boot_info){
@@ -68,6 +69,7 @@ void mm_bitmap_init(boot_info_t* boot_info) {
     ph_addr_t ph_s_ro = &s_ro;
     ph_addr_t ph_s_rw = &s_rw;
     ph_addr_t ph_e_rw = &e_rw;
+    ph_addr_t ph_e_init = &e_init_task_ph;
     //位图所管理的内存，必须比实际内存要大
     if(MM_BITMAP_MAP_SIZE_BYTE*8*MEM_PAGE_SIZE < boot_info->mem_size){
         dbg_error("Bitmap is too small to manage the entire memory!\r\n");
@@ -82,7 +84,7 @@ void mm_bitmap_init(boot_info_t* boot_info) {
     //设置位图所要管理的内存区域,从kenrel起始地址+kernel_size开始管理,而且4KB对齐
     int j = 0;//bitmap.region下标
     //内核末尾4KB对齐
-    uint32_t mem_start = ph_e_rw;
+    uint32_t mem_start = align_up(ph_e_init,MEM_PAGE_SIZE) ;
     //遍历boot_info每个区域，如果在bitmap管理范围内就加进去
     for (int i = 0; i < boot_info->ram_region_count; i++)
     {
@@ -117,6 +119,7 @@ void mm_bitmap_init(boot_info_t* boot_info) {
         }
         
     }
+    mm_bitmap_print();
 }
 
 
@@ -209,15 +212,19 @@ void mm_bitmap_free_pages(ph_addr_t start_addr, uint32_t num_pages) {
   * @brief 打印位图状态（调试用）
   */
 void mm_bitmap_print() {
-    for (int i = 0; i < MM_BITMAP_MAP_SIZE_BYTE * 8; i++) {
-        int byte_index = i / 8;
-        int bit_index = i % 8;
-        if (mm_bitmap.map[byte_index] & (1 << bit_index)) {
-            dbg_info("1");
-        } else {
-            dbg_info("0");
+    dbg_info("bitmap manage range:\r\n");
+    dbg_info("..................\r\n");
+    for (int i = 0; i < MM_REGION_CNT_MAX; i++)
+    {
+        mm_region_t *region =& mm_bitmap.region[i];
+        if(region->size == 0){
+            continue;
         }
-        if ((i + 1) % 64 == 0) dbg_info("\r\n");
+        else{
+            
+            dbg_info("region[%d]: start = 0x%x  size = 0x%x \r\n",i,region->start,region->size);
+        }
     }
-    dbg_info("\r\n");
+    dbg_info("..................\r\n");
+    
 }

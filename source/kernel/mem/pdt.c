@@ -6,7 +6,7 @@
 #include "string.h"
 // 页目录  32位系统，每个页表表项32位 4字节  总共有4096/(32/8) = 1024项
 
-page_entry_t page_table[PAGE_TABLE_ENTRY_CNT] __attribute__((aligned(4096)));
+page_entry_t g_page_table[PAGE_TABLE_ENTRY_CNT] __attribute__((aligned(4096)));
 
 /**
  * @brief 传入虚拟地址，获取某级页表的索引
@@ -41,7 +41,7 @@ static page_entry_t *get_page_entry(ph_addr_t pdt_base, int idx)
 /**
  * @brief 就只安装一页
  */
-static int pdt_set_one_entry(vm_addr_t vm_addr, ph_addr_t ph_addr, uint16_t attr)
+static int pdt_set_one_entry(page_entry_t* page_table, vm_addr_t vm_addr, ph_addr_t ph_addr, uint16_t attr)
 {
     ASSERT(vm_addr % MEM_PAGE_SIZE == 0);
     // 根据虚拟地址，获取一级页表索引和二级页表索引值
@@ -76,7 +76,7 @@ static int pdt_set_one_entry(vm_addr_t vm_addr, ph_addr_t ph_addr, uint16_t attr
 /**
  * @brief 传入虚拟地址和物理地址，建立映射关系
  */
-int pdt_set_entry(vm_addr_t vm_addr, ph_addr_t ph_addr, uint32_t size, uint16_t attr)
+int pdt_set_entry(page_entry_t* page_table,vm_addr_t vm_addr, ph_addr_t ph_addr, uint32_t size, uint16_t attr)
 {
     if (size == 0 && vm_addr == 0 && ph_addr == 0 && attr == 0)
     {
@@ -88,7 +88,7 @@ int pdt_set_entry(vm_addr_t vm_addr, ph_addr_t ph_addr, uint32_t size, uint16_t 
     int loop = size / MEM_PAGE_SIZE;
     for (int i = 0; i < loop; i++)
     {
-        ret = pdt_set_one_entry(vm_addr + i * MEM_PAGE_SIZE, ph_addr + i * MEM_PAGE_SIZE, attr);
+        ret = pdt_set_one_entry(page_table,vm_addr + i * MEM_PAGE_SIZE, ph_addr + i * MEM_PAGE_SIZE, attr);
         if (ret < 0)
         {
             dbg_error("pdt mapping between vm:0x%x and ph:0x%x fail\r\n", vm_addr + i * MEM_PAGE_SIZE, ph_addr + i * MEM_PAGE_SIZE);
@@ -103,9 +103,9 @@ ph_addr_t page_table_init(void)
     // 清0
     for (int i = 0; i < PAGE_TABLE_ENTRY_CNT; i++)
     {
-        page_table[i].val = 0;
+        g_page_table[i].val = 0;
     }
-    return (ph_addr_t)page_table;
+    return (ph_addr_t)g_page_table;
 }
 
 /**
@@ -114,7 +114,7 @@ ph_addr_t page_table_init(void)
  */
 void debug_print_page_table()
 {
-    ph_addr_t pdt_base = (ph_addr_t)page_table;
+    ph_addr_t pdt_base = (ph_addr_t)g_page_table;
     dbg_info("Printing page table at base: 0x%x\r\n", pdt_base);
 
     // 获取一级页表（页目录表）
@@ -151,7 +151,7 @@ void debug_print_page_table()
 int copy_kernel_pdt(page_entry_t *task_pdt)
 {
     //地址权限都相同，直接拷贝即可
-    page_entry_t *kernel_pdt = page_table;
+    page_entry_t *kernel_pdt = g_page_table;
     for (int i = 0; i < 1024; i++)
     {
         if (kernel_pdt[i].present)

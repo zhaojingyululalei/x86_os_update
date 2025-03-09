@@ -18,7 +18,28 @@
 			"algrithm.h": "c",
 			"printk.h": "c",
 			"pdt.h": "c",
-			"cpu_cfg.h": "c"
+			"cpu_cfg.h": "c",
+			"bit": "cpp",
+			"compare": "cpp",
+			"cstddef": "cpp",
+			"string": "cpp",
+			"limits": "cpp",
+			"memory": "cpp",
+			"new": "cpp",
+			"functional": "cpp",
+			"memory.h": "c",
+			"cpu_instr.h": "c",
+			"boot_info.h": "c",
+			"apci.h": "c",
+			"id.h": "c",
+			"syscall.h": "c",
+			"kernel_test.h": "c",
+			"stdlib.h": "c",
+			"_stdlib.h": "c",
+			"fs.h": "c",
+			"*.tcc": "c",
+			"cstdio": "c",
+			"applib.h": "c"
 		}
 	}
 }

@@ -1,27 +1,26 @@
 
 
 # Include common Makefile
-include ../../Makefile.common
+include ../../../Makefile.common
 
 # 手动配置项
-PROJECT := kernel
-INCLUDE := ../os_config  ../include ../lib/include
+PROJECT := std
+INCLUDE := ../include ../../os_config ../../include
 SRCDIR := 
-LIBDIR := ../lib
+LIBDIR := 
 
 # 查找库文件并生成链接选项
-LIB := $(shell find $(LIBDIR)  -maxdepth 1 -name '*.a') #不递归查找
-LIB := $(notdir $(LIB)) 
+LIB := $(shell find $(LIBDIR) -name '*.a')
 LIBS := $(patsubst %,-L%,${LIBDIR})
 
-LIBS += $(patsubst lib%.a,-l%,${LIB})
-LFLAGS += -Tkernel.lds
+LFLAGS := $(patsubst lib%.a,-l%,${LIB})
+LFLAGS += 
 
 # 路径配置
-BUILD := ../../build
-IMAGE_DIR := ../../image
+BUILD := ../../../build/lib
+IMAGE_DIR := ../../../image
 BUILDS := ${BUILD}/${PROJECT}
-OUT := ${PROJECT}.elf
+OUT := lib$(PROJECT).a
 
 INCLUDES := $(patsubst %,-I%,${INCLUDE})
 
@@ -54,11 +53,9 @@ MD := mkdir -p
 # 默认目标  注：objcopy -O binary 去掉了elf头，只保留数据段和代码段，由于直接加载，**汇编的时候，数据段要写到代码段后面**。
 all: $(BUILDS) $(IMAGE_DIR) $(OUT)
 	@echo "Executing 'all' complete!"
-	$(OBJCOPY_TOOL) -S $(OUT) $(IMAGE_DIR)/${PROJECT}.x.elf
-	$(OBJDUMP_TOOL) -x -d -S -m i8086 $(OUT) > $(BUILDS)/${PROJECT}_dis.txt
-	$(OBJDUMP_TOOL) -x -d -S -m i8086 $(IMAGE_DIR)/${PROJECT}.x.elf > $(BUILDS)/${PROJECT}_x_dis.txt
-	$(READELF_TOOL) -a $(OUT) > $(BUILDS)/${PROJECT}_elf.txt
-	mv $(OUT) $(IMAGE_DIR)
+	$(OBJDUMP_TOOL) -x -d -S -m i386 $(OUT) > $(BUILDS)/$(PROJECT)_dist.txt
+	$(READELF_TOOL) -a $(OUT) > $(BUILDS)/$(PROJECT)_elf.txt
+	
 
 # 创建构建目录
 $(BUILDS):
@@ -70,10 +67,9 @@ $(IMAGE_DIR):
 	-${MD} ${IMAGE_DIR}
 	@echo "Image directory created."
 
-# 链接目标文件生成 elf 文件
+# 链接目标文件生成静态库文件
 $(OUT): $(OBJS)
-	$(LD)  $(LFLAGS)  $(OBJS) -o $@ $(LIBS)
-
+	$(AR) rcs $@ $(OBJS)
 # 自动包含依赖文件
 -include $(DEPS)
 
@@ -95,17 +91,12 @@ test:
 	@echo "DEPS: $(DEPS)"
 	@echo "SRCS: $(SRCS)"
 	@echo "BUILDS: $(BUILDS)"
-	@echo "LIB: $(LIB)"
-	@echo "LIBS: $(LIBS)"
-	@echo "LFLAGS: $(LFLAGS)"
-	@echo "INCLUDES: $(INCLUDES)"
-
 
 
 # 清理规则
 clean:
 	-rm -f $(OBJS) $(DEPS)
 	-rm -f $(BUILDS)/*.txt
-	-rm -f $(IMAGE_DIR)/$(PROJECT).*
+	-rm -f ../$(OUT)
 	@echo "Clean complete."
 

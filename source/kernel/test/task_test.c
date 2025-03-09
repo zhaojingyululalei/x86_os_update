@@ -84,9 +84,9 @@ void task5(void){
     
 }
 void task_test(void){
-    create_task((ph_addr_t)task1,"task one",TASK_PRIORITY_DEFAULT,NULL);
-    create_task((ph_addr_t)task2,"task two",TASK_PRIORITY_DEFAULT,NULL);
-    create_task((ph_addr_t)task3,"task three",TASK_PRIORITY_DEFAULT,NULL);
-    create_task((ph_addr_t)task4,"task four",TASK_PRIORITY_DEFAULT,NULL);
-    create_task((ph_addr_t)task5,"task five",TASK_PRIORITY_DEFAULT,NULL);
+    create_kernel_task((ph_addr_t)task1,"task one",TASK_PRIORITY_DEFAULT,NULL);
+    create_kernel_task((ph_addr_t)task2,"task two",TASK_PRIORITY_DEFAULT,NULL);
+    create_kernel_task((ph_addr_t)task3,"task three",TASK_PRIORITY_DEFAULT,NULL);
+    create_kernel_task((ph_addr_t)task4,"task four",TASK_PRIORITY_DEFAULT,NULL);
+    create_kernel_task((ph_addr_t)task5,"task five",TASK_PRIORITY_DEFAULT,NULL);
 }

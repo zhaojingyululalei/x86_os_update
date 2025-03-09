@@ -4,9 +4,12 @@
             "name": "linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/source/include/**"
+                "${workspaceFolder}/source/include/**",
+                "${workspaceFolder}/source/lib/include/**"
             ]
         }
     ],
     "version": 4
 }
+
+

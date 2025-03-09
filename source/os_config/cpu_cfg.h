@@ -56,7 +56,7 @@
 #define SELECTOR_USR_CODE_SEG           (3<<3|RPL_3)   
 #define SELECTOR_USR_DATA_SEG           (4<<3|RPL_3)
 #define SELECTOR_CALL_GATE              (5<<3|RPL_3)
-
+#define SELECTOR_TSS_SEG                (6<<3|RPL_0)
 
 
 

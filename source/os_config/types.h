@@ -18,5 +18,6 @@ typedef unsigned int size_t;
 
 typedef uint32_t ph_addr_t;
 typedef uint32_t vm_addr_t;
+typedef uint32_t addr_t;
 
 #endif

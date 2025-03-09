@@ -196,11 +196,11 @@ void do_handler_page_fault(exception_frame_t *frame)
 
     if (frame->error_code & ERR_PAGE_US)
     {
-        dbg_info("\tA supervisor-mode access caused the fault.\r\n");
+        dbg_info("\tA user-mode access caused the fault.\r\n");
     }
     else
     {
-        dbg_info("\tA user-mode access caused the fault.\r\n");
+        dbg_info("\tA supervisor-mode access caused the fault.\r\n");
     }
 
     dump_core_regs(frame);
