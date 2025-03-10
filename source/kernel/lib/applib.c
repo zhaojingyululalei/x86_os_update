@@ -12,6 +12,20 @@ int write(int fd,const char* buf,size_t len){
     ret = sys_call(&arg);
     return ret;
 }
+void sleep(uint32_t ms){
+    syscall_args_t arg;
+    arg.id = SYS_sleep;
+    arg.arg0 = ms;
+    sys_call(&arg);
+    return;
+}
+
+void yield(void){
+    syscall_args_t arg;
+    arg.id = SYS_yield;
+    sys_call(&arg);
+    return;
+}
 
 
 void printf(char *fmt, ...)

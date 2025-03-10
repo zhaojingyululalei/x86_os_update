@@ -10,11 +10,9 @@ void task2(void){
     while (1)
     {
         b++;
-        for (int i = 0; i < TASK_INTERVAL_TIME; i++)
-        {
-            
-        }
+        //sys_sleep(1000);
         dbg_info("i am task2,b=%d\r\n",b);
+        //sys_yield();
     }
     
     
@@ -25,11 +23,9 @@ void task1(void){
     while (1)
     {
         a++;
-        for (int i = 0; i < TASK_INTERVAL_TIME; i++)
-        {
-            
-        }
+        //sys_sleep(1000);
         dbg_info("i am task1,a=%d\r\n",a);
+        //sys_yield();
         
     }
     
@@ -41,11 +37,9 @@ void task3(void){
     while (1)
     {
         a++;
-        for (int i = 0; i < TASK_INTERVAL_TIME; i++)
-        {
-            
-        }
+        //sys_sleep(1000);
         dbg_info("i am task3,a=%d\r\n",a);
+        //sys_yield();
         
     }
     
@@ -57,12 +51,9 @@ void task4(void){
     while (1)
     {
         a++;
-        for (int i = 0; i < TASK_INTERVAL_TIME; i++)
-        {
-            
-        }
+        //sys_sleep(1000);
         dbg_info("i am task4,a=%d\r\n",a);
-        
+        //sys_yield();
     }
     
     
@@ -73,12 +64,9 @@ void task5(void){
     while (1)
     {
         a++;
-        for (int i = 0; i < TASK_INTERVAL_TIME; i++)
-        {
-            
-        }
+        //sys_sleep(1000);
         dbg_info("i am task5,a=%d\r\n",a);
-        
+        //sys_yield();
     }
     
     

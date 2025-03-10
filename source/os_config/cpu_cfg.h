@@ -6,6 +6,7 @@
 #define OS_32   32
 #define OS_64   64
 
+#define OS_TICK_MS              10       	// 时间片间隔10ms
 //GDT描述符格式
 #define GDT_DESC_LIMIT_0_15_POS    0
 #define GDT_DESC_BASE_0_15_POS     16

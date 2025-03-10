@@ -46,16 +46,17 @@ typedef struct _task_t
         TASK_STATE_WAITING,
         TASK_STATE_ZOMBIE,
     } state;
+    list_t* list;//任务当前所在队列
     int pid; //每个任务的pid都不同
     char name[16];
     char* stack_magic;
     uint32_t priority; //任务优先级，优先级高的会多分一些时间片
     int ticks; //每时间片-1
-
+    int sleep_ticks;//睡眠时间片
     page_entry_t *page_table;
     addr_t heap_base; //堆的起始地址
     addr_t stack_base;//栈的起始地址
-    task_attr_t attr;
+    task_attr_t attr; //任务属性
     list_node_t node;
     list_node_t pool_node; //用于快速分配释放task_t结构
 }task_t;
@@ -75,6 +76,13 @@ void task_manager_init(void);
 task_t *create_task(addr_t entry, const char *name, uint32_t priority, task_attr_t *attr);
 bool is_stack_magic(task_t* task);
 void task_activate(task_t* task);
+void task_switch(task_t* next);
 void jmp_to_usr_mode(void);
 task_t* create_kernel_task(addr_t entry, const char *name, uint32_t priority, task_attr_t *attr);
+void task_list_debug(void);
+
+
+void sys_sleep(uint32_t ms);
+void sys_yield(void);
+
 #endif

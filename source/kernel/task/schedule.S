@@ -6,8 +6,8 @@
 # edi   ---now esp
     .text
     .extern cur_task set_cur_task
-    .global task_switch
-task_switch:
+    .global task_switch_to
+task_switch_to:
     # 保存当前任务的上下文
     push %ebp
     mov %esp,%ebp

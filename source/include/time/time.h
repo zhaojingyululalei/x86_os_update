@@ -17,9 +17,11 @@ typedef struct _tm {
 #define BCD_TO_BIN(val) ((val) = ((val) & 0x0F) + ((val) >> 4) * 10)
 #define BIN_TO_BCD(val) ((((val) / 10) << 4) | ((val) % 10))
 extern time_t startup_time;
+//time相关
 time_t mktime(const tm_t *tm);
 int localtime(tm_t *tm, const time_t time);
 int strtime(char* buf,int buf_size,const char* format,const tm_t* time);
+
 int sys_get_clocktime(tm_t* time);
 time_t sys_time(tm_t *tm);
 void time_init(void);

@@ -47,6 +47,7 @@ static void task_pool_free(task_t *task)
  */
 static void idle_task(void)
 {
+    irq_enable_global();
     while (1)
     {
         int x = 1;
@@ -132,8 +133,6 @@ void jmp_to_usr_mode(void)
     tss->cs = SELECTOR_USR_CODE_SEG;
     tss->eip = init_task_entry;
 
-    ASSERT(task_manager.ready_list.first == &task_manager.init->node);
-    ASSERT(&task->node == task_manager.ready_list.first);
     irq_leave_protection(state);
 
     // 模拟中断返回
@@ -155,7 +154,7 @@ void jmp_to_usr_mode(void)
  */
 bool is_stack_magic(task_t *task)
 {
-    irq_state_t state= irq_enter_protection();
+    irq_state_t state = irq_enter_protection();
     bool ret = strncmp(STACK_MAGIC, task->stack_magic, STACK_MAGIC_LEN) == 0;
     irq_leave_protection(state);
     return ret;
@@ -214,7 +213,8 @@ task_t *create_task(addr_t entry, const char *name, uint32_t priority, task_attr
 
     // 分配pid
     task_manager.tasks[task->pid] = task;
-
+    task->state = TASK_STATE_CREATED;
+    task->list = NULL;
     irq_leave_protection(state);
     return task;
 }
@@ -239,7 +239,7 @@ void task_collect(task_t *task)
 }
 extern void syscall_init(ph_addr_t);
 /**
- * @brief 激活一个任务
+ * @brief 激活一个任务的必备环境
  */
 void task_activate(task_t *task)
 {
@@ -267,7 +267,7 @@ void task_activate(task_t *task)
         "xor %%edx,%%edx\n\t"
         "wrmsr\n\t" ::"r"(task->esp0)
         : "eax", "ecx", "edx");
-   irq_leave_protection(state);
+    irq_leave_protection(state);
     // syscall_init(task->esp0); //将当前要调度的任务 的 esp0写入到msr寄存器中，系统调用自动加载esp和ip
 }
 
@@ -280,13 +280,58 @@ void task_manager_init(void)
     id_pool_init(TASK_PID_START, TASK_PID_END, &task_manager.pid_pool);
     list_init(&task_manager.ready_list);
     list_init(&task_manager.sleep_list);
+    // 创建空闲进程
+    task_manager.idle = create_task((ph_addr_t)idle_task, "idle", TASK_PRIORITY_DEFAULT, NULL);
+    task_manager.idle->state = TASK_STATE_READY;
     // 创建first进程
     task_manager.init = create_init_task();
 
     set_cur_task(task_manager.init);
-    task_set_ready(task_manager.init);
     task_manager.init->state = TASK_STATE_RUNNING;
+    // 打印所有链表的地址，便于调试
+    
+}
+extern void task_switch_to(task_t *next);
+/**
+ * @brief 进程切换，切换上下文
+ */
+void task_switch(task_t *next)
+{
+    irq_state_t state = irq_enter_protection();
+    task_switch_to(next);
+    irq_leave_protection(state);
+}
 
-    // 创建空闲进程
-    task_manager.idle = create_task((ph_addr_t)idle_task, "idle", TASK_PRIORITY_DEFAULT, NULL);
+void sys_sleep(uint32_t ms)
+{
+    task_t *task = cur_task();
+    irq_state_t state = irq_enter_protection();
+    task->sleep_ticks = (ms + OS_TICK_MS - 1) / OS_TICK_MS;
+    if (task->sleep_ticks <= 0)
+    {
+
+        irq_leave_protection(state);
+        return; // 不用睡
+    }
+    ASSERT(task->list == NULL);
+    ASSERT(task->state == TASK_STATE_RUNNING);
+    // 加入睡眠队列
+
+    task_set_sleep(task);
+    schedule();
+    irq_leave_protection(state);
+    return;
+}
+void sys_yield(void){
+    task_t *task = cur_task();
+     ASSERT(task->list == NULL);
+    ASSERT(task->state == TASK_STATE_RUNNING);
+    schedule();
+}
+/**
+ * @brief 打印链表地址
+ */
+void task_list_debug(void){
+     dbg_info("ready list addr:%x\r\n",&task_manager.ready_list);
+     dbg_info("sleep list addr:%x\r\n",&task_manager.sleep_list);
 }

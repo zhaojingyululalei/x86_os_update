@@ -9,6 +9,8 @@
 static const syscall_handler_t sys_table[] = {
     [SYS_test] = (syscall_handler_t)sys_calc_add,
     [SYS_write] = (syscall_handler_t)sys_write,
+    [SYS_sleep] = (syscall_handler_t)sys_sleep,
+    [SYS_yield] = (syscall_handler_t)sys_yield,
 };
 
 int syscall_resolve(syscall_args_t* args)

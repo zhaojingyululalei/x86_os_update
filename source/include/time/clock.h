@@ -1,7 +1,7 @@
 #ifndef __CLOCK_H
 #define __CLOCK_H
 #include "types.h"
-#define OS_TICK_MS              10       	// 时间片间隔10ms
+
 
 #define PIT_OSC_FREQ                1193182				// 定时器时钟
 

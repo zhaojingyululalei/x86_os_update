@@ -115,23 +115,6 @@ int localtime(tm_t *tm, const time_t time)
 
     return 0;
 }
-
-
-/**
- * @brief 返回一个时间戳
- * @param tm为null,返回当前时间戳，tm不为null，返回tm对应的时间戳
- */
-time_t sys_time(tm_t *tm)
-{
-    if (tm == NULL)
-    {
-        tm_t cur;
-        sys_get_clocktime(&cur);
-        return mktime(&cur);
-    }else{
-        return mktime(tm);
-    }
-}
 /**
  * @brief 格式化时间为字符串
  *      %Y：4 位数的年份（如 2025）。
@@ -206,6 +189,23 @@ int strtime(char* buf, int buf_size, const char* format, const tm_t* time) {
 
     return written;
 }
+
+/**
+ * @brief 返回一个时间戳
+ * @param tm为null,返回当前时间戳，tm不为null，返回tm对应的时间戳
+ */
+time_t sys_time(tm_t *tm)
+{
+    if (tm == NULL)
+    {
+        tm_t cur;
+        sys_get_clocktime(&cur);
+        return mktime(&cur);
+    }else{
+        return mktime(tm);
+    }
+}
+
 
 /**
  * @brief 时间初始化，获取开机时间

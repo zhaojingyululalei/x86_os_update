@@ -1,7 +1,7 @@
 
 
 #include "types.h"
-#include "_stdlib.h"
+#include "syscall/applib.h"
 // int sys_call(syscall_args_t *args)
 // {
 //     int ret;
@@ -40,12 +40,9 @@ void init_task_main(void)
     while (true)
     {
         
-        for (int i = 0; i < 0xFFFFFF; i++)
-        {
-            b++;
-        }
+        //sleep(1000);
         printf("calc ret = %d\r\n",c);
-        
+        //yield();
         c++;
         
     }
