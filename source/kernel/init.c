@@ -23,7 +23,7 @@ static void test(void)
     int ret = 0;
     ret++;
 
-    task_test();
+    ipc_test();
 }
 // /**
 //  * @brief 跳转到init进程，(将first task变成init进程)

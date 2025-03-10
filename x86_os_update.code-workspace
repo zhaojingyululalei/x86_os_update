@@ -39,7 +39,11 @@
 			"fs.h": "c",
 			"*.tcc": "c",
 			"cstdio": "c",
-			"applib.h": "c"
+			"applib.h": "c",
+			"semaphore.h": "c",
+			"mutex.h": "c",
+			"errno.h": "c",
+			"task.h": "c"
 		}
 	}
 }

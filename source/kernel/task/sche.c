@@ -1,6 +1,9 @@
 #include "task/sche.h"
 #include "printk.h"
 #include "irq/irq.h"
+#include "ipc/semaphore.h"
+#include "time/time.h"
+#include "errno.h"
 /**
  * @brief 将任务加入就绪队列
  */
@@ -42,8 +45,6 @@ void set_cur_task(task_t *task)
 task_t *next_task(void)
 {
     task_t *cur = cur_task();
-    //ASSERT(!cur->list);
-    ASSERT(cur->state == TASK_STATE_RUNNING || cur->state == TASK_STATE_SLEEP);
     task_t* next ;
     irq_state_t state = irq_enter_protection();
     //查看就绪队列中有没有任务
@@ -72,7 +73,7 @@ void schedule(void)
 {
     //获取当前任务
     task_t *cur = cur_task();
-    ASSERT(cur->state == TASK_STATE_RUNNING || cur->state == TASK_STATE_SLEEP);
+    //ASSERT(cur->state == TASK_STATE_RUNNING || cur->state == TASK_STATE_SLEEP);
     irq_state_t state = irq_enter_protection();
     
     if(!cur){
@@ -138,6 +139,36 @@ void clock_sleep_check(void){
             task_set_ready(sleep_task);
         }
         sleep_node = next;
+    }
+    
+}
+
+/**
+ * @brief 遍历全局等待队列,把所有超时任务加入就绪队列
+ */
+
+void clock_gwait_check(void){
+    if(!list_count(&global_tmwait_list)){
+        return;
+    }
+    time_t cur_time = sys_time(NULL);
+    list_node_t* wait_node = global_tmwait_list.first;
+    while (wait_node)
+    {
+        list_node_t* next_node = wait_node->next;
+        task_t* task = list_node_parent(wait_node,task_t,time_node);
+        //检查是否超时
+        if(cur_time >= task->wake_time){
+            //超时唤醒 从两个等待队列中移除，并加入就绪队列
+            list_remove(&global_tmwait_list,wait_node);
+            ASSERT(task->state == TASK_STATE_WAITING);
+            list_remove(task->list,&task->node);
+            task_set_ready(task);
+
+            task->err_num = ETIMEOUT;
+
+        }
+        wait_node = next_node;
     }
     
 }

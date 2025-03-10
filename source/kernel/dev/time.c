@@ -1,5 +1,6 @@
 #include "time/time.h"
 #include "cpu_instr.h"
+#include "irq/irq.h"
 #include "string.h"
 #define CMOS_ADDRESS 0x70
 #define CMOS_DATA 0x71
@@ -33,7 +34,7 @@ static int is_leap_year(int year)
 }
 
 /**
- * @brief 将本地时间转换为时间戳
+ * @brief 将本地时间转换为时间戳,总秒数
  */
 time_t mktime(const tm_t *tm)
 {
@@ -191,7 +192,7 @@ int strtime(char* buf, int buf_size, const char* format, const tm_t* time) {
 }
 
 /**
- * @brief 返回一个时间戳
+ * @brief 返回一个时间戳(单位是秒)
  * @param tm为null,返回当前时间戳，tm不为null，返回tm对应的时间戳
  */
 time_t sys_time(tm_t *tm)
@@ -244,7 +245,8 @@ void time_init(void)
  */
 int sys_get_clocktime(tm_t *time)
 {
-
+    irq_state_t state = irq_enter_protection();
+    
     do
     {
         time->tm_sec = read_cmos(0x00);  // 秒
@@ -254,7 +256,7 @@ int sys_get_clocktime(tm_t *time)
         time->tm_mon = read_cmos(0x08);  // 月
         time->tm_year = read_cmos(0x09); // 年
     } while (time->tm_sec != read_cmos(0x00)); // 再次读取秒，确保数据一致性
-
+    irq_leave_protection(state);
     // 将 BCD 编码转换为二进制
     BCD_TO_BIN(time->tm_sec);
     BCD_TO_BIN(time->tm_min);

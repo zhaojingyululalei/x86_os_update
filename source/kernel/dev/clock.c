@@ -26,7 +26,8 @@ void do_handler_timer (exception_frame_t *frame) {
     sys_tick+=10;
     // 发送EOI
     pic_send_eoi(IRQ0_TIMER);
-    clock_sleep_check();
+    clock_sleep_check(); //睡醒的任务加入就绪队列
+    clock_gwait_check(); //等待超时的任务加入就绪队列
     task_t* cur = cur_task();
     if(!cur){
         dbg_error("cur task is NULL\r\n");

@@ -324,9 +324,13 @@ void sys_sleep(uint32_t ms)
 }
 void sys_yield(void){
     task_t *task = cur_task();
-     ASSERT(task->list == NULL);
-    ASSERT(task->state == TASK_STATE_RUNNING);
     schedule();
+}
+/**
+ * @brief 获取任务的errno
+ */
+int task_get_errno(void){
+    return cur_task()->err_num;
 }
 /**
  * @brief 打印链表地址

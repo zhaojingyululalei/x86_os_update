@@ -35,15 +35,13 @@
 void init_task_main(void)
 {
     int a = 10;
-    int b = 0;
-    int c = 0;
     while (true)
     {
         
         //sleep(1000);
-        printf("calc ret = %d\r\n",c);
+        a++;
         //yield();
-        c++;
+        
         
     }
 }
