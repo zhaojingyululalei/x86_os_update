@@ -32,6 +32,7 @@
 //     ret = sys_call(&arg);
 //     return ret;
 // }
+int b = 0;
 void init_task_main(void)
 {
     int a = 10;
@@ -43,18 +44,20 @@ void init_task_main(void)
         if (pid == 0)
         {
             a = 16;
+            b=2;
             // 子进程不应该继续循环 `fork()`
             int cid= getpid();
             int ppid = getppid();
             
-            printf("i am child:%d,ppid=%d,%d\r\n",getpid(),getppid(),getpid());
+            printf("i am child:%d,ppid=%d,b=%d\r\n",getpid(),getppid(),b);
             break;
         }
         else if (pid > 0)
         {
             int theid = getpid();
             a++;
-            printf("i am father pid=%d,create child pid=%d\r\n",theid , pid);
+            b=3;
+            printf("i am father pid=%d,create child pid=%d,b=%d\r\n",theid , pid,b);
         }
         else
         {

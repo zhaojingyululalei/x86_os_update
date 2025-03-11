@@ -49,9 +49,9 @@ int getppid(void){
 }
 void printf(char *fmt, ...)
 {
-    sleep(10);//bug 不知道为啥
+    
 #define PRINT_MAX_STR_BUF_SIZE 512
-    static char str_buf[PRINT_MAX_STR_BUF_SIZE];
+    char str_buf[PRINT_MAX_STR_BUF_SIZE];
     va_list args;
     int offset = 0;
     // 清空缓冲区
