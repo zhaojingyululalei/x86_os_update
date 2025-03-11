@@ -8,13 +8,18 @@
 
 # 调用前 ip：0x80000050  esp:0x0xeffeff7f，指向eax  eax存着&arg
 sys_call:
-    mov %ss,%edi  # 保存用户栈段到edi
+    # push %ebx 
+
+    mov %ss,%esi  # 保存用户栈段到esi
     mov %esp,%ebx  # 用ebx存放此刻的esp  
     # mov 4(%ebx),%eax   &arg已经在eax中
     mov (%ebx),%edx # 把eip放在edx中
     mov %ebx,%ecx
     addl $4,%ecx  #  把esp的值放入ecx  ，此时esp指向的是eip
-    sysenter
+
+    
+    # pop %ebx
+    sysenter # 直接跳转到内核栈，以后再也跳不回来了
 
 # sysenter动作
 # 从msr寄存器取 eip(sysenter_handle) esp(0x2000) 跳转到内核的sysenter_handle函数  

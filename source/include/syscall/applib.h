@@ -15,7 +15,9 @@
 int write(int fd, const char *buf, size_t len);
 void sleep(uint32_t ms);
 void yield(void);
-
+int fork(void);
+int getpid(void);
+int getppid(void);
 // printf 相关
 void printf(char *fmt, ...);
 

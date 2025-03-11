@@ -11,6 +11,9 @@ static const syscall_handler_t sys_table[] = {
     [SYS_write] = (syscall_handler_t)sys_write,
     [SYS_sleep] = (syscall_handler_t)sys_sleep,
     [SYS_yield] = (syscall_handler_t)sys_yield,
+    [SYS_fork] = (syscall_handler_t)sys_fork,
+    [SYS_getpid] = (syscall_handler_t)sys_getpid,
+    [SYS_getppid] =(syscall_handler_t)sys_getppid,
 };
 
 int syscall_resolve(syscall_args_t* args)

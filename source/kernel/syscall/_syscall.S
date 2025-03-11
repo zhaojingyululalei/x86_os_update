@@ -22,7 +22,8 @@ syscall_init:
 sysenter_handler:
     
     # eax --- &args   ecx  eip   edx esp
-    push %edi # 保存用户栈段
+    push %ebp
+    push %esi # 保存用户栈段
     push %ecx
     push %edx 
     push %eax 
@@ -38,9 +39,10 @@ sysenter_handler:
     add $(1*4),%esp 
     pop %edx
     pop %ecx
-    pop %edi # 用户栈段
+    pop %esi # 用户栈段
+    pop %ebp
     # 全部替换为用户段
-    mov %edi,%ebx
+    mov %esi,%ebx
     mov %ebx,%ds
     mov %ebx,%es
     mov %ebx,%fs

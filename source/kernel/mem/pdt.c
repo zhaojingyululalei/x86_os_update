@@ -4,6 +4,8 @@
 #include "algrithm.h"
 #include "mem/bitmap.h"
 #include "string.h"
+#include "task/task.h"
+#include "task/sche.h"
 // 页目录  32位系统，每个页表表项32位 4字节  总共有4096/(32/8) = 1024项
 
 page_entry_t g_page_table[PAGE_TABLE_ENTRY_CNT] __attribute__((aligned(4096)));
@@ -13,7 +15,7 @@ page_entry_t g_page_table[PAGE_TABLE_ENTRY_CNT] __attribute__((aligned(4096)));
  * @param addr 虚拟地址
  * @param level 几级页表 只有1和2
  */
-static int get_pdt_index(vm_addr_t addr, int level)
+ int get_pdt_index(vm_addr_t addr, int level)
 {
     switch (level)
     {
@@ -29,8 +31,9 @@ static int get_pdt_index(vm_addr_t addr, int level)
 
 /**
  * @brief 传入页表首地址 和 idx 获取对应的页表项
+ * @note  可传入页目录首地址或者页表首地址
  */
-static page_entry_t *get_page_entry(ph_addr_t pdt_base, int idx)
+ page_entry_t *get_page_entry(ph_addr_t pdt_base, int idx)
 {
 
     ASSERT(idx >= 0 && idx < PAGE_TABLE_ENTRY_CNT);
@@ -161,4 +164,76 @@ int copy_kernel_pdt(page_entry_t *task_pdt)
         }
     }
     return 0;
+}
+
+/**
+ * @brief 传入虚拟地址，获取对应的物理地址
+ */
+ph_addr_t vm_to_ph(page_entry_t* page_table,vm_addr_t vmaddr)
+{
+    // 根据虚拟地址，获取一级页表索引和二级页表索引值
+    int pdt_idx = get_pdt_index(vmaddr, 1);
+    int ptt_idx = get_pdt_index(vmaddr, 2);
+
+    page_entry_t *pde = get_page_entry(page_table, pdt_idx);
+    ph_addr_t ptt_base;
+    if(!pde->present){
+        dbg_error("the vmaddr:0x%x not map to phaddr in page_table:0x%x\r\n",vmaddr,page_table);
+        return NULL;
+    }
+    ptt_base = pde->phaddr<<12;
+
+    page_entry_t* pte = get_page_entry(ptt_base,ptt_idx);
+    if(pte->present){
+        return (pte->phaddr << 12) | (vmaddr & 0xfff);
+    }
+    else{
+        dbg_error("the vmaddr:0x%x not map to phaddr in page_table:0x%x\r\n",vmaddr,page_table);
+        return NULL;
+    }
+}
+/**
+ * @brief 直接通过虚拟地址，获得对应的页目录表项
+ */
+page_entry_t* get_pde(page_entry_t* page_table, vm_addr_t vm){
+    int pde_idx = get_pdt_index(vm,1);
+    if(pde_idx < 0){
+        dbg_error("get pde err\r\n");
+    }
+    return page_table+pde_idx;
+}
+/**
+ * @brief 直接通过虚拟地址，获取对应的页表表项
+ */
+page_entry_t* get_pte(page_entry_t* page_table,vm_addr_t vm){
+    page_entry_t* pde = get_pde(page_table,vm);
+    ph_addr_t ptt = pde->phaddr <<12;
+
+    int pte_idx = get_pdt_index(vm,2);
+    page_entry_t* pte = get_page_entry(ptt,pte_idx);
+    if(pte){
+        return pte;
+    }
+    dbg_error("get pte fail\r\n");
+    return NULL;
+}
+
+int page_fault_cow(vm_addr_t PF_vm){
+    task_t* cur = cur_task();
+    //获取错误页表表项
+    page_entry_t* fault_pte = get_pte(cur->page_table,PF_vm);
+    if(fault_pte->ignored == PDE_COW && fault_pte->write ==0 && fault_pte->user==1){
+        ph_addr_t src = fault_pte->phaddr<<12;
+        ph_addr_t dest = mm_bitmap_alloc_page();
+        fault_pte->phaddr = dest>>12;
+        fault_pte->write = 1;
+        fault_pte->ignored = 0;
+
+        //开始拷贝父空间的内容
+        memcpy(dest,src,MEM_PAGE_SIZE);
+        return 0;
+    }
+
+    return -1;
+    
 }

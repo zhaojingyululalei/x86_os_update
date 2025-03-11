@@ -1,5 +1,5 @@
  	.text
- 	.global init_task_entry,sys_call
+ 	.global init_task_entry
 	.extern init_task_main
 init_task_entry:
     // 需要重新加载各数据段

@@ -5,6 +5,7 @@
 #include "cpu_instr.h"
 #include "types.h"
 #include "cpu.h"
+#include "mem/pdt.h"
 static void dump_core_regs(exception_frame_t *frame)
 {
     // 打印CPU寄存器相关内容
@@ -169,10 +170,16 @@ void do_handler_general_protection(exception_frame_t *frame)
     }
 }
 
+
 void do_handler_page_fault(exception_frame_t *frame)
 {
+    int ret;
     ph_addr_t PF_vm = read_cr2(); // 发生错误的虚拟地址
-    
+    ret = page_fault_cow(PF_vm);
+    if(ret >=0){
+        //cow 处理成功，不用报错了
+        return;
+    }
     dbg_info("--------------------------------\r\n");
     dbg_info("IRQ/Exception happend: Page fault.\r\n");
     if (frame->error_code & ERR_PAGE_P)

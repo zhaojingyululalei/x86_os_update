@@ -26,10 +26,30 @@ void yield(void){
     sys_call(&arg);
     return;
 }
-
-
+int fork(void){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_fork;
+    ret = sys_call(&arg);
+    return ret;
+}
+int getpid(void){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_getpid;
+    ret = sys_call(&arg);
+    return ret;
+}
+int getppid(void){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_getppid;
+    ret = sys_call(&arg);
+    return ret;
+}
 void printf(char *fmt, ...)
 {
+    sleep(10);//bug 不知道为啥
 #define PRINT_MAX_STR_BUF_SIZE 512
     static char str_buf[PRINT_MAX_STR_BUF_SIZE];
     va_list args;

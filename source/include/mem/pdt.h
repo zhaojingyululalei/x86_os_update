@@ -1,5 +1,6 @@
 #ifndef __PDT_H
 #define __PDT_H
+
 #include "types.h"
 #define PAGE_TABLE_ENTRY_CNT (MEM_PAGE_SIZE / (OS_32 / 8))
 #define PDE_P (1 << 0)
@@ -12,6 +13,7 @@
 #define PDE_PAT PDE_PS
 #define PDE_G (1 << 8)
 
+#define PDE_COW 2   //该页做了写时复制标记，写在pde的ignore域
 
 
 // PDE属性默认全部设置为 可读可写 且用户可访问   PTE属性根据系统设置进行配置
@@ -40,7 +42,15 @@ typedef union page_entry_t
 
 
 ph_addr_t page_table_init(void);
+ int get_pdt_index(vm_addr_t addr, int level);
+ page_entry_t *get_page_entry(ph_addr_t pdt_base, int idx);
+ page_entry_t* get_pde(page_entry_t* page_table, vm_addr_t vm);
+ page_entry_t* get_pte(page_entry_t* page_table,vm_addr_t vm);
+ph_addr_t vm_to_ph(page_entry_t* page_table,vm_addr_t vmaddr);
 int pdt_set_entry(page_entry_t* page_table, vm_addr_t vm_addr,ph_addr_t ph_addr,uint32_t size,uint16_t attr);
 int copy_kernel_pdt(page_entry_t *task_pdt);
 void debug_print_page_table();
+
+
+int page_fault_cow(vm_addr_t PF_vm);
 #endif

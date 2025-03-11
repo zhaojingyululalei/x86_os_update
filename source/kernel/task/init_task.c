@@ -35,13 +35,37 @@
 void init_task_main(void)
 {
     int a = 10;
+    char str[6] = "hello\0";
+    int child_cnt = 3;
+    for (int i = 0; i < 2; i++)
+    {
+        int pid = fork();
+        if (pid == 0)
+        {
+            a = 16;
+            // 子进程不应该继续循环 `fork()`
+            int cid= getpid();
+            int ppid = getppid();
+            
+            printf("i am child:%d,ppid=%d\r\n",getpid(),getppid());
+            break;
+        }
+        else if (pid > 0)
+        {
+            int theid = getpid();
+            a++;
+            printf("i am father pid=%d,create child pid=%d\r\n",theid , pid);
+        }
+        else
+        {
+            printf("fork err\r\n");
+        }
+    }
+
     while (true)
     {
-        
-        //sleep(1000);
-        a++;
-        //yield();
-        
-        
+
+        sleep(6000);
+        printf("a=%d\r\n", a);
     }
 }

@@ -1,5 +1,6 @@
 #ifndef __TASK_H
 #define __TASK_H
+
 #include "types.h"
 #include "tools/list.h"
 #include "tools/id.h"
@@ -49,14 +50,15 @@ typedef struct _task_t
     list_t* list;//任务当前所在队列
     int err_num; //错误号，每个线程独有
     int pid; //每个任务的pid都不同
+    int ppid;//父进程pid
     char name[16];
     char* stack_magic;
     uint32_t priority; //任务优先级，优先级高的会多分一些时间片
     int ticks; //每时间片-1
     int sleep_ticks;//睡眠时间片
     page_entry_t *page_table;
-    addr_t heap_base; //堆的起始地址
-    addr_t stack_base;//栈的起始地址
+    addr_t heap_base; //堆的起始地址 没进入用户态，存放物理地址，进入用户态，存放虚拟地址
+    addr_t stack_base;//栈的起始地址 没进入用户态，存放物理地址，进入用户态，存放虚拟地址
     task_attr_t attr; //任务属性
 
     list_node_t node; //就绪队列，睡眠队列 等待队列
@@ -75,7 +77,14 @@ typedef struct task_frame_t
     uint32_t ebx;
     uint32_t ebp;
     uint32_t eip;
-} task_frame_t;
+} task_frame_t; //调用约定栈帧，被调用者保存的
+typedef struct _sysenter_frame_t{
+    uint32_t eax;
+    uint32_t edx; //存着调用返回的ip
+    uint32_t ecx; //存着调用返回的esp
+    uint32_t esi;
+    uint32_t ebp;
+}sysenter_frame_t;
 
 extern task_manager_t task_manager;
 void task_manager_init(void);
@@ -90,5 +99,7 @@ int task_get_errno(void);
 
 void sys_sleep(uint32_t ms);
 void sys_yield(void);
-
+int sys_fork(void); 
+int sys_getpid(void);
+int sys_getppid(void);
 #endif
