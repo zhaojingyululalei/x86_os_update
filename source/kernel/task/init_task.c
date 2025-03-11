@@ -47,7 +47,7 @@ void init_task_main(void)
             int cid= getpid();
             int ppid = getppid();
             
-            printf("i am child:%d,ppid=%d\r\n",getpid(),getppid());
+            printf("i am child:%d,ppid=%d,%d\r\n",getpid(),getppid(),getpid());
             break;
         }
         else if (pid > 0)
@@ -66,6 +66,6 @@ void init_task_main(void)
     {
 
         sleep(6000);
-        printf("a=%d\r\n", a);
+        //printf("a=%d\r\n", a);
     }
 }

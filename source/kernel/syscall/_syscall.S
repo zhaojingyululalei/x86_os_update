@@ -28,11 +28,11 @@ sysenter_handler:
     push %edx 
     push %eax 
     # 全部替换为内核段
-    mov %ss,%ebx
-    mov %ebx,%ds
-    mov %ebx,%es
-    mov %ebx,%fs
-    mov %ebx,%gs
+    mov %ss,%edi
+    mov %edi,%ds
+    mov %edi,%es
+    mov %edi,%fs
+    mov %edi,%gs
 
     call syscall_resolve
     
@@ -42,9 +42,9 @@ sysenter_handler:
     pop %esi # 用户栈段
     pop %ebp
     # 全部替换为用户段
-    mov %esi,%ebx
-    mov %ebx,%ds
-    mov %ebx,%es
-    mov %ebx,%fs
-    mov %ebx,%gs
+    mov %esi,%edi
+    mov %edi,%ds
+    mov %edi,%es
+    mov %edi,%fs
+    mov %edi,%gs
     sysexit
