@@ -8,6 +8,7 @@
 #include "task/sche.h"
 #include "algrithm.h"
 #include "irq/irq.h"
+#include "errno.h"
 static task_t task_buf[TASK_LIMIT_CNT];
 static list_t task_pool;
 /**
@@ -73,7 +74,10 @@ static task_t *create_init_task(void)
     vm_addr_t start_vm = (vm_addr_t)&s_init_task_vm;
     size_t init_text_size = end_ph - start_ph;
     ASSERT(start_vm == USR_ENTRY_BASE);
-    task_t *init = create_task(start_vm, "init", TASK_PRIORITY_DEFAULT, NULL);
+    task_attr_t attr;
+    attr.stack_size = MEM_PAGE_SIZE;
+    attr.heap_size = 4*MEM_PAGE_SIZE;
+    task_t *init = create_task(start_vm, "init", TASK_PRIORITY_DEFAULT, &attr);
     if (!init)
     {
         dbg_error("init process create fail\r\n");
@@ -229,16 +233,7 @@ task_t *create_kernel_task(addr_t entry, const char *name, uint32_t priority, ta
     task_t *task = create_task(entry, name, priority, attr);
     task_set_ready(task);
 }
-/**
- * @brief 回收任务
- */
-void task_collect(task_t *task)
-{
-    irq_state_t state = irq_enter_protection();
-    // 回收pid
-    release_id(&task_manager.pid_pool, task->pid);
-    irq_leave_protection(state);
-}
+
 extern void syscall_init(ph_addr_t);
 /**
  * @brief 激活一个任务的必备环境
@@ -291,7 +286,6 @@ void task_manager_init(void)
     set_cur_task(task_manager.init);
     task_manager.init->state = TASK_STATE_RUNNING;
     // 打印所有链表的地址，便于调试
-    
 }
 extern void task_switch_to(task_t *next);
 /**
@@ -307,20 +301,23 @@ void task_switch(task_t *next)
 /**
  * @brief 获取任务的errno
  */
-int task_get_errno(void){
+int task_get_errno(void)
+{
     return cur_task()->err_num;
 }
 /**
  * @brief 打印链表地址
  */
-void task_list_debug(void){
-     dbg_info("ready list addr:%x\r\n",&task_manager.ready_list);
-     dbg_info("sleep list addr:%x\r\n",&task_manager.sleep_list);
+void task_list_debug(void)
+{
+    dbg_info("ready list addr:%x\r\n", &task_manager.ready_list);
+    dbg_info("sleep list addr:%x\r\n", &task_manager.sleep_list);
 }
 /**
  * @brief 进程主动让出cpu
  */
-void sys_yield(void){
+void sys_yield(void)
+{
     task_t *task = cur_task();
     schedule();
 }
@@ -349,23 +346,25 @@ void sys_sleep(uint32_t ms)
 }
 
 /**
- * @brief 浅拷贝父页表 0x80000000~0xefff0000 
- * @note pde的ignore位标记为PDE_COW 所有页表表项标记为只读(页目录表项不用，就正常拷贝)，用于触发写时复制 
+ * @brief 浅拷贝父页表 0x80000000~0xefff0000
+ * @note pde的ignore位标记为PDE_COW 所有页表表项标记为只读(页目录表项不用，就正常拷贝)，用于触发写时复制
  */
-static void copy_parent_pdt(task_t* child, task_t* parent) {
+static void copy_parent_pdt(task_t *child, task_t *parent)
+{
     page_entry_t *parent_pdt = parent->page_table;
     page_entry_t *child_pdt = child->page_table;
 
     ASSERT(child->stack_base == parent->stack_base);
     ASSERT(USR_STACK_TOP - child->attr.stack_size == child->stack_base);
-    //ASSERT(child->heap_base == parent->heap_base == USR_HEAP_BASE);
-   
+    // ASSERT(child->heap_base == parent->heap_base == USR_HEAP_BASE);
 
-    for (int i = get_pdt_index(USR_ENTRY_BASE, 1); i <= get_pdt_index(child->stack_base, 1); i++) {
+    for (int i = get_pdt_index(USR_ENTRY_BASE, 1); i <= get_pdt_index(child->stack_base, 1); i++)
+    {
         page_entry_t *parent_pde = &parent_pdt[i];
         page_entry_t *child_pde = &child_pdt[i];
 
-        if (!parent_pde->present) {
+        if (!parent_pde->present)
+        {
             // PDE 不存在，跳过
             continue;
         }
@@ -382,18 +381,23 @@ static void copy_parent_pdt(task_t* child, task_t* parent) {
         page_entry_t *child_pt = (page_entry_t *)child_pt_base;
 
         // **拷贝 PTE**
-        for (int j = 0; j < PAGE_TABLE_ENTRY_CNT; j++) {
-            if (!parent_pt[j].present) continue;
+        for (int j = 0; j < PAGE_TABLE_ENTRY_CNT; j++)
+        {
+            if (!parent_pt[j].present)
+                continue;
 
             // 计算 PTE 负责的虚拟地址
             vm_addr_t vm_addr = ((i << 22) | (j << 12));
 
-            if (vm_addr >= USR_ENTRY_BASE && vm_addr < child->stack_base) {
+            if (vm_addr >= USR_ENTRY_BASE && vm_addr < child->stack_base)
+            {
                 // **只对 0x80000000 ~ 0xEFFE0000 范围的 PTE 进行 COW 处理**
-                child_pt[j] = parent_pt[j];  // 直接拷贝 PTE
-                child_pt[j].write = 0;       // 标记 PTE 为只读
+                child_pt[j] = parent_pt[j];     // 直接拷贝 PTE
+                child_pt[j].write = 0;          // 标记 PTE 为只读
                 child_pt[j].ignored |= PDE_COW; // **在 PTE 的 ignored 位中标记 COW**
-            } else {
+            }
+            else
+            {
                 // **超出范围的 PTE 不拷贝，不做 COW 处理**
                 ;
             }
@@ -404,84 +408,166 @@ static void copy_parent_pdt(task_t* child, task_t* parent) {
     }
 }
 
-
 /**
  * @brief 复制父进程,创建子进程
  */
 
-int sys_fork(void){
+int sys_fork(void)
+{
     int ret;
     irq_state_t state = irq_enter_protection();
-    task_t* parent=  cur_task();
-    //因为是复制父进程，子进程的入口地址不重要
-    task_t* child = task_pool_alloc();
-    if(!child){
+    task_t *parent = cur_task();
+    // 因为是复制父进程，子进程的入口地址不重要
+    task_t *child = task_pool_alloc();
+    if (!child)
+    {
         irq_leave_protection(state);
         dbg_error("task pool err:create child task fail\r\n");
         return -1;
     }
     child->attr.heap_size = parent->attr.heap_size;
     child->attr.stack_size = parent->attr.stack_size;
-    strcpy(child->name,"child");
+    strcpy(child->name, "child");
 
     child->ticks = child->priority = parent->priority;
-    //创建子进程页表
-    child->page_table = (page_entry_t*)mm_bitmap_alloc_page();
+    // 创建子进程页表
+    child->page_table = (page_entry_t *)mm_bitmap_alloc_page();
     copy_kernel_pdt(child->page_table);
 
-    child->stack_base = parent->stack_base;//虚拟地址
-    child->heap_base = parent->heap_base;//虚拟地址
-    //栈空间另行处理，其余空间全部遵循写时复制 cow机制
-    //浅拷贝父页表，从0x80000000到child.stack_base  包含所有代码和数据包括堆空间
-    copy_parent_pdt(child,parent);
+    child->stack_base = parent->stack_base; // 虚拟地址
+    child->heap_base = parent->heap_base;   // 虚拟地址
+    // 栈空间另行处理，其余空间全部遵循写时复制 cow机制
+    // 浅拷贝父页表，从0x80000000到child.stack_base  包含所有代码和数据包括堆空间
+    copy_parent_pdt(child, parent);
 
-    //为子进程分配栈空间并拷贝父进程栈空间
-    ph_addr_t c_stack_base = mm_bitmap_alloc_pages(child->attr.stack_size/MEM_PAGE_SIZE);
+    // 为子进程分配栈空间并拷贝父进程栈空间
+    ph_addr_t c_stack_base = mm_bitmap_alloc_pages(child->attr.stack_size / MEM_PAGE_SIZE);
     ph_addr_t c_stack_top = c_stack_base + child->attr.stack_size;
-    child->stack_magic = (char*)c_stack_base;
-    strncpy(child->stack_magic,STACK_MAGIC,STACK_MAGIC_LEN);
+    child->stack_magic = (char *)c_stack_base;
+    strncpy(child->stack_magic, STACK_MAGIC, STACK_MAGIC_LEN);
 
     vm_addr_t p_stack_base = parent->stack_base;
-    //映射
-    ret = pdt_set_entry(child->page_table,p_stack_base,c_stack_base,child->attr.stack_size,PDE_P|PDE_W|PDE_U);
-    ASSERT(ret >=0);
-    //ph_addr_t test_addr = vm_to_ph(child->page_table,0xeffef000);
-    //拷贝
-    ph_addr_t p_ph_stack_base = vm_to_ph(parent->page_table,p_stack_base);//获取父进程栈空间对应的物理地址
-    memcpy(c_stack_base,p_ph_stack_base,child->attr.stack_size);
-    
-    //给子进程分配内核栈空间 
+    // 映射
+    ret = pdt_set_entry(child->page_table, p_stack_base, c_stack_base, child->attr.stack_size, PDE_P | PDE_W | PDE_U);
+    ASSERT(ret >= 0);
+    // ph_addr_t test_addr = vm_to_ph(child->page_table,0xeffef000);
+    // 拷贝
+    ph_addr_t p_ph_stack_base = vm_to_ph(parent->page_table, p_stack_base); // 获取父进程栈空间对应的物理地址
+    memcpy(c_stack_base, p_ph_stack_base, child->attr.stack_size);
+
+    // 给子进程分配内核栈空间
     child->esp0 = mm_bitmap_alloc_page() + MEM_PAGE_SIZE;
 
-    //获取父进程内核 sysenter_frmae栈帧,获取返回到用户态的 esp和eip
-    sysenter_frame_t* sysenter_frame = (sysenter_frame_t*)(parent->esp0-sizeof(sysenter_frame_t));
+    // 获取父进程内核 sysenter_frmae栈帧,获取返回到用户态的 esp和eip
+    sysenter_frame_t *sysenter_frame = (sysenter_frame_t *)(parent->esp0 - sizeof(sysenter_frame_t));
     vm_addr_t ret_esp = sysenter_frame->ecx;
     vm_addr_t ret_eip = sysenter_frame->edx;
     vm_addr_t ret_ebp = sysenter_frame->ebp;
-    //处理子进程栈帧 task_frame_t  （子进程是通过task_switch进行切换的，而不是直接jmp to usr mode,栈帧必须处理好）
-    vm_addr_t c_vm_stack_top = ret_esp- sizeof(task_frame_t);
-    ph_addr_t c_ph_frame =  vm_to_ph(child->page_table,c_vm_stack_top);
-    task_frame_t* c_frame = (task_frame_t*)c_ph_frame;
+    // 处理子进程栈帧 task_frame_t  （子进程是通过task_switch进行切换的，而不是直接jmp to usr mode,栈帧必须处理好）
+    vm_addr_t c_vm_stack_top = ret_esp - sizeof(task_frame_t);
+    ph_addr_t c_ph_frame = vm_to_ph(child->page_table, c_vm_stack_top);
+    task_frame_t *c_frame = (task_frame_t *)c_ph_frame;
     c_frame->esi = c_frame->edi = c_frame->ebx = 0;
     c_frame->ebp = ret_ebp;
     c_frame->eip = ret_eip;
 
     child->esp = c_vm_stack_top;
-    
 
-    //test_addr = vm_to_ph(child->page_table,0xeffef000);
+    // test_addr = vm_to_ph(child->page_table,0xeffef000);
     child->pid = allocate_id(&task_manager.pid_pool);
     child->ppid = parent->pid;
-
-    //将子进程加入就绪队列
+    // 将子进程加入父进程的child_list中
+    list_insert_last(&parent->child_list, &child->child_node);
+    //将子进程加入到taskmanger的tasks中
+    task_manager.tasks[child->pid] = child;
+    // 将子进程加入就绪队列
     task_set_ready(child);
     irq_leave_protection(state);
     return child->pid;
 }
 
-int sys_getpid(void){
+int sys_getpid(void)
+{
     return cur_task()->pid;
 }
-int sys_getppid(void){
+int sys_getppid(void)
+{
     return cur_task()->ppid;
+}
+
+void sys_exit(int status)
+{
+    task_t *cur = cur_task();
+    task_t* parent = parent_task();
+    ASSERT(cur->state == TASK_STATE_RUNNING);
+    ASSERT(!cur->list);
+    ASSERT(cur != task_manager.init);//init进程永不退出
+    irq_state_t state = irq_enter_protection();
+    cur->status = status;
+    cur->state = TASK_STATE_ZOMBIE;
+    //查看该进程是否存在子进程，如果存在子进程，交给父进程处理，自己退出
+    if (list_count(&cur->child_list))
+    {
+        list_join(&cur->child_list,&parent->child_list);
+    }
+    //唤醒父进程，可以回收了
+    if(parent->list == &task_manager.wait_list && parent->state == TASK_STATE_WAITING){
+        task_set_ready(parent);
+    }
+    sys_yield();
+    irq_leave_protection(state);
+}
+/**
+ * @brief 回收一个进程的所有资源
+ */
+int task_collect(task_t *task)
+{
+    //堆栈资源释放(代码段共享，数据区写时复制，栈各是各的)
+
+    //页表回收
+
+    //task_manager相关资源
+}
+
+/**
+ * @brief 阻塞回收所有子进程
+ */
+int sys_wait(int *status)
+{
+    int ret_pid = -1;
+    task_t *parent = cur_task();
+    
+    while (true)
+    {
+        irq_state_t state = irq_enter_protection();
+        if(!list_count(&parent->child_list)){
+            //一个子进程都没有，返回-1
+            parent->err_num = ECHILD;
+            return -1;
+        }
+        // 遍历child_list，看看有没有可以回收的子进程
+        list_node_t *cur_node = parent->child_list.first;
+        while (cur_node)
+        {
+            list_node_t *next_node = cur_node->next;
+            task_t *cur_child = list_node_parent(cur_node, task_t, child_node);
+            if (cur_child->state == TASK_STATE_ZOMBIE)
+            {
+                ASSERT(!cur_child->list); // 肯定不在任何状态队列中
+                ret_pid = cur_child->pid;
+                *status = cur_child->status;
+                list_remove(&parent->child_list, cur_node); // 从子进程队列中移除
+                task_collect(cur_child);                    // 释放该进程所有资源
+                irq_leave_protection(state);
+                return ret_pid; //本函数唯一可以退出的出口
+            }
+
+            cur_node = next_node;
+        }
+        // 没有可以回收的子进程
+        task_set_wait(parent); // 加入task_manager的等待队列
+        sys_yield(); //调度走，以后不要再执行了，等待某个子进程退出后唤醒它
+        //唤醒之后，接着从遍历child_list链表开始执行
+        irq_leave_protection(state);
+    }
 }

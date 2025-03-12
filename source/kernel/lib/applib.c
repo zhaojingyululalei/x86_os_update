@@ -47,6 +47,27 @@ int getppid(void){
     ret = sys_call(&arg);
     return ret;
 }
+int wait(int* status){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_wait;
+    arg.arg0 =status;
+    ret = sys_call(&arg);
+    return ret;
+}
+void exit(int status){
+    syscall_args_t arg;
+    arg.id = SYS_exit;
+    arg.arg0 =status;
+    sys_call(&arg);
+}
+int geterrno(void){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_geterrno;
+    ret = sys_call(&arg);
+    return ret;
+}
 void printf(char *fmt, ...)
 {
     

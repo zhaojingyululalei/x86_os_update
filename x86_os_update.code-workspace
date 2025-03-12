@@ -43,7 +43,8 @@
 			"semaphore.h": "c",
 			"mutex.h": "c",
 			"errno.h": "c",
-			"task.h": "c"
+			"task.h": "c",
+			"page.h": "c"
 		}
 	}
 }

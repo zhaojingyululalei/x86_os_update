@@ -25,6 +25,13 @@ void task_set_sleep(task_t* task){
     task->list = &task_manager.sleep_list;
     irq_leave_protection(state);
 }
+void task_set_wait(task_t* task){
+    irq_state_t state = irq_enter_protection();
+    task->state = TASK_STATE_WAITING;
+    list_insert_last(&task_manager.wait_list,&task->node);//加入等待队列
+    task->list = &task_manager.wait_list;
+    irq_leave_protection(state);
+}
 task_t *cur_task(void)
 {
     task_t* task;
@@ -32,6 +39,14 @@ task_t *cur_task(void)
     task = task_manager.cur_task;
     irq_leave_protection(state);
     return task;
+}
+task_t* parent_task(void){
+    task_t* parent;
+    irq_state_t state = irq_enter_protection();
+    int ppid = sys_getppid();
+    parent = task_manager.tasks[ppid];
+    irq_leave_protection(state);
+    return parent;
 }
 void set_cur_task(task_t *task)
 {
@@ -93,7 +108,7 @@ void schedule(void)
     ASSERT(next->state == TASK_STATE_READY);
     //如果当前任务是正在运行的普通任务
     if(cur->state == TASK_STATE_RUNNING){
-        if(cur!=task_manager.idle){
+        if(cur!=task_manager.idle ){
             //空闲任务不用加入就绪队列
             task_set_ready(cur);
         }
@@ -172,3 +187,4 @@ void clock_gwait_check(void){
     }
     
 }
+

@@ -25,5 +25,8 @@ typedef int (*syscall_handler_t)(uint32_t arg0, uint32_t arg1, uint32_t arg2, ui
 #define SYS_fork            4
 #define SYS_getpid          5
 #define SYS_getppid         6
+#define SYS_wait            7
+#define SYS_exit            8
+#define SYS_geterrno        9
 
 #endif

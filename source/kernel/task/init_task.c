@@ -2,73 +2,81 @@
 
 #include "types.h"
 #include "syscall/applib.h"
-// int sys_call(syscall_args_t *args)
-// {
-//     int ret;
 
-//     asm volatile (
-//             "mov "
-//             "sysenter\n\t"                // 触发系统调用
-//             "mov %%eax, %0\n\t"           // 取返回值
-//             : "=r"(ret)                   // 输出返回值
-//             : "a"(args)                   // 将 args 的地址直接放入 EDI
-//             : "%eax", "%ebx", "%ecx", "%edx", "%esi", "memory"
-//     );
+#define NUM_CHILD 3 // 主进程创建 3 个子进程
+#define SUB_CHILD 2 // 每个子进程再创建 2 个孙子进程
 
-//     return ret;
-// }
-// extern void *sys_call(void *);
+void create_sub_children()
+{
+    pid_t sub_pids[SUB_CHILD];
 
-// int calc_add(int a, int b, int c, int d, int e)
-// {
-//     int ret;
-//     syscall_args_t arg;
-//     arg.id = SYS_test;
-//     arg.arg0 = a;
-//     arg.arg1 = b;
-//     arg.arg2 = c;
-//     arg.arg3 = d;
-//     arg.arg4 = e;
-//     ret = sys_call(&arg);
-//     return ret;
-// }
-int b = 0;
+    for (int j = 0; j < SUB_CHILD; j++)
+    {
+        sub_pids[j] = fork();
+        if (sub_pids[j] < 0)
+        {
+            printf("Fork failed\r\n");
+            exit(1);
+        }
+        if (sub_pids[j] == 0)
+        {
+            // 孙子进程
+            printf("Grandchild created: PID=%d, Parent PID=%d\r\n", getpid(), getppid());
+            exit(j + 1); // 退出码设为 1 或 2
+        }
+    }
+
+    // 子进程回收所有孙子进程
+    for (int i = 0; i < SUB_CHILD; i++)
+    {
+        int status;
+        pid_t pid = wait(&status);
+        if (pid > 0)
+        {
+            printf("Grandchild reclaimed: PID=%d, Status=%d, Parent PID=%d\r\n",
+                   pid, WEXITSTATUS(status), getpid());
+        }
+    }
+    printf("Child exiting: PID=%d\r\n", getpid());
+    exit(0);
+}
 void init_task_main(void)
 {
-    int a = 10;
-    char str[6] = "hello\0";
-    int child_cnt = 3;
-    for (int i = 0; i < 2; i++)
+    printf("Main process started: PID=%d\r\n", getpid());
+
+    pid_t child_pids[NUM_CHILD];
+
+    for (int i = 0; i < NUM_CHILD; i++)
     {
-        int pid = fork();
-        if (pid == 0)
+        child_pids[i] = fork();
+        if (child_pids[i] < 0)
         {
-            a = 16;
-            b=2;
-            // 子进程不应该继续循环 `fork()`
-            int cid= getpid();
-            int ppid = getppid();
-            
-            printf("i am child:%d,ppid=%d,b=%d\r\n",getpid(),getppid(),b);
-            break;
+            printf("Fork failed\r\n");
+            exit(1);
         }
-        else if (pid > 0)
+        if (child_pids[i] == 0)
         {
-            int theid = getpid();
-            a++;
-            b=3;
-            printf("i am father pid=%d,create child pid=%d,b=%d\r\n",theid , pid,b);
+            // 子进程
+            printf("Child created: PID=%d, Parent PID=%d\r\n", getpid(), getppid());
+            create_sub_children();
         }
-        else
+    }
+
+    // 主进程回收所有子进程
+    for (int i = 0; i < NUM_CHILD; i++)
+    {
+        int status;
+        pid_t pid = wait(&status);
+        if (pid > 0)
         {
-            printf("fork err\r\n");
+            printf("Child reclaimed: PID=%d, Status=%d, Main PID=%d\r\n",
+                   pid, WEXITSTATUS(status), getpid());
         }
     }
 
     while (true)
     {
-
-        sleep(6000);
-        //printf("a=%d\r\n", a);
+        sleep(3000);
+        printf("Main process finished: PID=%d\r\n", getpid());
     }
 }

@@ -20,6 +20,7 @@ typedef struct _task_manager_t{
     struct _task_t* tasks[TASK_LIMIT_CNT];
     list_t ready_list;
     list_t sleep_list;
+    list_t wait_list;//父进程等待回收子进程，暂时不能去就绪队列中运行
     struct _task_t* init;
     struct _task_t *idle; //就绪队列没有任务了就让这个执行
     /**tss */
@@ -48,9 +49,11 @@ typedef struct _task_t
         TASK_STATE_ZOMBIE,
     } state;
     list_t* list;//任务当前所在队列
+    list_t child_list;//存放所有子进程
     int err_num; //错误号，每个线程独有
     int pid; //每个任务的pid都不同
     int ppid;//父进程pid
+    int status;//高8位存放信号信息，低8位存退出码
     char name[16];
     char* stack_magic;
     uint32_t priority; //任务优先级，优先级高的会多分一些时间片
@@ -62,7 +65,7 @@ typedef struct _task_t
     task_attr_t attr; //任务属性
 
     list_node_t node; //就绪队列，睡眠队列 等待队列
-
+    list_node_t child_node;//子进程退出，放入父进程的子进程队列中记录
     list_node_t time_node; //全局超时等待队列
     uint32_t wake_time;//任务等待超时时间
 
@@ -96,10 +99,13 @@ void jmp_to_usr_mode(void);
 task_t* create_kernel_task(addr_t entry, const char *name, uint32_t priority, task_attr_t *attr);
 void task_list_debug(void);
 int task_get_errno(void);
+int task_collect(task_t *task);
 
 void sys_sleep(uint32_t ms);
 void sys_yield(void);
 int sys_fork(void); 
 int sys_getpid(void);
 int sys_getppid(void);
+int sys_wait(int *status);
+void sys_exit(int status);
 #endif
