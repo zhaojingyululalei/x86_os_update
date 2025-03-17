@@ -61,7 +61,7 @@ void memory_init(void)
     create_kernel_pdt(page_table);
     bucket_mempool_init();//bucket_t内存池初始化,不管是内核kmalloc还是用户的malloc，只要获取桶结构，就依靠这个初始化
     //为kmalloc开辟空间，用于内核动态分配内存,并且初始化km_allocator
-    km_allocator_init();
+    //km_allocator_init();
 
     page_manager_init();//用page_t结构记录物理页信息
     //vmalloc空间管理初始化

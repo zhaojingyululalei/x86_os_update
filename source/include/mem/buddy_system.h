@@ -6,9 +6,8 @@
 
 typedef struct _bucket_t{
     enum{
-        BUCKET_STATE_NONE,
+        BUCKET_STATE_USED, //该桶有东西，不能合并
         BUCKET_STATE_FREE, //该桶空闲，可以合并
-        BUCKET_STATE_USED //该桶有东西，不能合并
     }state;
     addr_t addr; //该桶代表的内存首地址
     size_t capacity; //代表的内存块大小
@@ -51,7 +50,18 @@ typedef struct _buddy_alloc_head_t
 #pragma pack()
 
 
+//例如这是个4KB的区域，那么链表上全部都是4KB大小的空闲桶(可供分配)
+typedef struct _buddy_zone_t{
+    size_t capacity;
+    list_t buckets_list; //所有属于该区域的桶，大小全部相同
+    list_node_t lnode; //用于分配zone结构
+    rb_node_t rbnode; //往树上挂
+}buddy_zone_t;
 
+buddy_zone_t *zone_alloc(void);
+void zone_free(buddy_zone_t* zone);
 
-
+void buddy_dynamic_system_init(buddy_system_t *buddy, addr_t start, size_t size);
+void *buddy_system_dynamic_alloc(buddy_system_t *buddy, size_t size);
+void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr);
 #endif
