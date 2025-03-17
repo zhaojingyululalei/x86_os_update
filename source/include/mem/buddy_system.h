@@ -11,7 +11,6 @@ typedef struct _bucket_t{
     }state;
     addr_t addr; //该桶代表的内存首地址
     size_t capacity; //代表的内存块大小
-    struct _bucket_t* buddy; //记录兄弟在哪
 
     list_node_t lnode;//用于空闲链表分配bucket_t结构
     rb_node_t rbnode; //用于插入红黑树，按照capacity排序插入

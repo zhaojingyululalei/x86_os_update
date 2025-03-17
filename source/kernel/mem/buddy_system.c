@@ -182,7 +182,9 @@ void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
         return NULL; // 没有合适的桶
 
     bucket_t *bucket = node_get_bucket(node); // 找到这个桶
-
+    // 分配该 `bucket`，并从红黑树中移除
+    rb_tree_remove(&buddy->tree, bucket);
+    bucket->state = BUCKET_STATE_USED;
     // **分裂逻辑**  偶数分裂
     while (bucket->capacity / 2 >= size && (bucket->capacity / 2) % 2 == 0)
     {
@@ -193,17 +195,12 @@ void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
 
         bucket->capacity /= 2;
 
-        // 伙伴关系
-        bucket->buddy = new_bucket;
-        new_bucket->buddy = bucket;
+        
 
         // 插入新的 `new_bucket` 到红黑树
         rb_tree_insert(&buddy->tree, new_bucket);
-        rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
     }
-    // 分配该 `bucket`，并从红黑树中移除
-    rb_tree_remove(&buddy->tree, bucket);
-    bucket->state = BUCKET_STATE_USED;
+    
     rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
 
     // 记录桶信息
@@ -212,7 +209,47 @@ void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
 
     return (void *)(bucket->addr + sizeof(buddy_alloc_head_t));
 }
-
+/**
+ * @brief 获取某个桶的兄弟桶
+ */
+static bucket_t* fix_get_buddy(buddy_system_t* buddy,bucket_t* bucket){
+    rb_node_t *node =  rb_tree_find_by(&buddy->tree,bucket->capacity,bucket_find_by_capacity);
+    bucket_t* buddy_bucket;
+    if(node==buddy->tree.nil){
+        buddy_bucket = NULL;
+    }else{
+        buddy_bucket = rb_node_parent(node,bucket_t,rbnode);
+        ASSERT(buddy_bucket->state == BUCKET_STATE_FREE); //存放在树上的桶，全部是空闲的
+    }
+    return buddy_bucket;
+    
+}
+static bucket_t* dynamic_get_buddy(buddy_system_t* buddy,bucket_t* bucket){
+    size_t capacity = bucket->capacity;
+    rb_node_t *zone_node = rb_tree_find_by(&buddy->tree, capacity, zone_find_by_capacity);
+    buddy_zone_t *zone;
+    if (zone_node == buddy->tree.nil)
+    {
+        // 如果没找到zone,说明兄弟还在被使用，还没释放
+        return NULL;
+    }
+    else
+    {
+        // 如果找到了zone，
+        zone = rb_node_parent(zone_node, buddy_zone_t, rbnode);
+        list_node_t* cur = zone->buckets_list.first;
+        while (cur)
+        {
+            bucket_t* b = list_node_parent(cur,bucket_t,lnode);
+            if(b->addr+b->capacity == bucket->addr || bucket->addr + bucket->capacity == b->addr){
+                return b;
+            }
+            cur = cur->next;
+        }
+        
+    }
+    return NULL; //兄弟节点还在使用，
+}
 /**
  * @brief 伙伴系统释放addr的内存
  */
@@ -226,10 +263,11 @@ void buddy_system_free(buddy_system_t *buddy, void *addr)
     bucket_t *bucket = header->bucket;
     bucket->state = BUCKET_STATE_FREE;
 
+    bucket_t *buddy_bucket = fix_get_buddy(buddy,bucket);
     // **合并逻辑**
-    while (bucket->buddy && bucket->buddy->state == BUCKET_STATE_FREE)
+    while (buddy_bucket && buddy_bucket->state == BUCKET_STATE_FREE)
     {
-        bucket_t *buddy_bucket = bucket->buddy;
+        
 
         // 释放 `buddy_bucket`
         rb_tree_remove(&buddy->tree, buddy_bucket);
@@ -246,7 +284,7 @@ void buddy_system_free(buddy_system_t *buddy, void *addr)
             bucket->addr = buddy_bucket->addr; // 让 `bucket` 指向前面的块
         }
         bucket_free(buddy_bucket);
-        bucket->buddy = NULL; // 伙伴已经被合并
+        buddy_bucket = fix_get_buddy(buddy,bucket);
     }
 
     // **插入合并后的 `bucket` 回红黑树**
@@ -327,9 +365,7 @@ void *buddy_system_dynamic_alloc(buddy_system_t *buddy, size_t size)
 
         bucket->capacity /= 2;
 
-        // 伙伴关系
-        bucket->buddy = new_bucket;
-        new_bucket->buddy = bucket;
+       
 
         // 插入新的 `new_bucket` 到红黑树
         // 先找和new_bucket大小相同的zone
@@ -366,15 +402,17 @@ void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr)
     bucket_t *bucket = header->bucket;
     bucket->state = BUCKET_STATE_FREE;
 
+    bucket_t *buddy_bucket = dynamic_get_buddy(buddy,bucket);
     // **合并逻辑**
-    while (bucket->buddy && bucket->buddy->state == BUCKET_STATE_FREE)
+    while (buddy_bucket && buddy_bucket->state == BUCKET_STATE_FREE)
     {
-        bucket_t *buddy_bucket = bucket->buddy;
+        
 
         // 释放 `buddy_bucket`
         //先找兄弟节点所在的zone
         buddy_zone_t* buddy_zone = find_zone_by_capacity(buddy,buddy_bucket->capacity);
         ASSERT(buddy_zone->buckets_list.count > 0);//兄弟节点肯定在里面，要不然就是哪里出错了
+        //取出buddy_bucket
         list_remove(&buddy_zone->buckets_list,&buddy_bucket->lnode);
         if(buddy_zone->buckets_list.count <=0){ 
             //如果buddyzone没有任何bucket了，直接从红黑树中删除
@@ -394,8 +432,10 @@ void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr)
             bucket->addr = buddy_bucket->addr; // 让 `bucket` 指向前面的块
         }
 
-        bucket->buddy = NULL; // 伙伴已经被合并
+        
         bucket_free(buddy_bucket);
+
+        buddy_bucket = dynamic_get_buddy(buddy,bucket);
     }
 
     // **插入合并后的 `bucket` 回红黑树**
