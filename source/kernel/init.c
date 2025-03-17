@@ -15,13 +15,16 @@
 #include "task/sche.h"
 #include "printk.h"
 #include "cpu_cfg.h"
+#include "mem/page.h"
 boot_info_t *os_info;
 static void test(void)
 {
-    int ret = 0;
-    ret++;
-
-    //ipc_test();
+    buddy_system_test();
+    while (true)
+    {
+        sys_sleep(1000);
+    }
+    
 }
 
 /**
@@ -39,6 +42,7 @@ void kernel_init(boot_info_t *boot_info)
     // 页和 进程模块都弄好了，再写伙伴系统
     mm_bitmap_init(boot_info);
     memory_init();
+    
     task_manager_init();
     irq_enable_global();
     test();

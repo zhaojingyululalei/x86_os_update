@@ -522,7 +522,7 @@ void sys_exit(int status)
  */
 int task_collect(task_t *task)
 {
-    //堆栈资源释放(代码段共享，数据区写时复制，栈各是各的)
+    //堆栈资源释放(内核共享,代码段，数据区写时复制，栈各是各的)
 
     //页表回收
 

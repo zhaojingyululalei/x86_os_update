@@ -32,6 +32,7 @@ static void mm_bitmap_set_region(int index, ph_addr_t start, uint32_t size) {
     }
     mm_bitmap.region[index].start = start;
     mm_bitmap.region[index].size = size;
+    mm_bitmap.region_cnt++;
 }
 /**
  * @brief 将物理地址转换为位图中的索引
@@ -70,6 +71,7 @@ void mm_bitmap_init(boot_info_t* boot_info) {
     ph_addr_t ph_s_rw = &s_rw;
     ph_addr_t ph_e_rw = &e_rw;
     ph_addr_t ph_e_init = &e_init_task_ph;
+    mm_bitmap.region_cnt = 0;
     //位图所管理的内存，必须比实际内存要大
     if(MM_BITMAP_MAP_SIZE_BYTE*8*MEM_PAGE_SIZE < boot_info->mem_size){
         dbg_error("Bitmap is too small to manage the entire memory!\r\n");
@@ -212,6 +214,7 @@ void mm_bitmap_free_pages(ph_addr_t start_addr, uint32_t num_pages) {
   * @brief 打印位图状态（调试用）
   */
 void mm_bitmap_print() {
+    dbg_info("bitmap manage %d range\r\n",mm_bitmap.region_cnt);
     dbg_info("bitmap manage range:\r\n");
     dbg_info("..................\r\n");
     for (int i = 0; i < MM_REGION_CNT_MAX; i++)
@@ -227,4 +230,17 @@ void mm_bitmap_print() {
     }
     dbg_info("..................\r\n");
     
+}
+
+/**
+ * @brief 计算位图管理了多少页
+ */
+uint32_t calc_bitmap_pages(){
+    uint32_t total_size = 0;
+    for (int i = 0; i < mm_bitmap.region_cnt; i++)
+    {
+        total_size+= mm_bitmap.region[i].size;
+    }
+    uint32_t ret = align_up(total_size,MEM_PAGE_SIZE)/MEM_PAGE_SIZE;
+    return ret;
 }

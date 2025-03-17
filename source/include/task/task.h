@@ -67,6 +67,7 @@ typedef struct _task_t
     list_node_t node; //就绪队列，睡眠队列 等待队列
     list_node_t child_node;//子进程退出，放入父进程的子进程队列中记录
     list_node_t time_node; //全局超时等待队列
+    list_node_t page_node;//记录每个页被哪些进程拥有
     uint32_t wake_time;//任务等待超时时间
 
     list_node_t pool_node; //用于快速分配释放task_t结构

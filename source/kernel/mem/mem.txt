@@ -1,0 +1,25 @@
+- bitmap 分配16MB给kmalloc区域
+
+- kmalloc内存池 (物理地址连续，内核使用)
+    -管理范围 由bitmap分配连续16MB物理内存，因此范围得看bitmap怎么分配的
+- vmalloc内存池(虚拟地址连续，物理地址可以不连续) 
+    - 管理范围是A0000000~B0000000
+- malloc内存池 用户堆内存(用户堆内存，虚拟地址连续，物理地址不一定连续)
+    - 管理范围 90000000~A0000000
+
+***除了malloc，kmalloc和vmalloc都需要锁***
+    - malloc因为各个任务有各个任务的堆空间，因此不冲突
+
+
+***page_t部分用irq_state 来实现互斥***
+    - 因为创建任务的过程中用到了page_t，都是匿名页
+    - page_t模块主要任务是用来记录页信息，而不是用来分配内存
+
+***pdt 各个任务有各个任务的页表，不冲突，不用锁***
+
+***buddy_system***
+    - 伙伴分配系统不用锁，因为个是各的
+    - 每个任务有自己的buddy_allocator
+    - 内核独占自己的buddy_allocator，用于kmalloc
+    - vmalloc不用buddy_system
+    - 伙伴系统设置为通用结构，可以管理物理内存和虚拟内存

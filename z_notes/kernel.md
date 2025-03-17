@@ -56,3 +56,41 @@
         实模式下，中断表中低2字节存offset，高2字节存seg
         保护模式下，32位全部存offset
     - iret 中断返回指令，弹出 ip cs eflags
+# 内存管理
+    alloc_pages
+    kamlloc
+    vmalloc
+    水位线
+    alloc_context
+    快速分配 get_page_from_free_list
+    慢速分配 __alloc_pages_slowpath
+    pcp 每内存缓冲区
+    内存分配策略：NUMA架构
+
+
+    pglist----NUMA节点有几个，就有几个pglist
+    zone_dma
+    zone_dma
+    zone_NORMAL   中有free_area,是一个数组，每个数组元素是一个page链表
+    zone_HIGHMFM
+
+    page 页帧
+    page_to_pfn
+    pfn_to_page
+
+    zone与page如何关联的
+    automic_long_t
+    c中的原子操作
+
+
+    NUMA节点 pglist zone page 物理页
+    备用节点
+
+    分配order=的物理页
+    mempolicy 内存分配策略
+    直接内存回收，异步内存回收
+
+    slab slob slub
+
+    vma
+    

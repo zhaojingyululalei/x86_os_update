@@ -10,8 +10,9 @@ typedef struct _mm_region_t{
     uint32_t size;
 }mm_region_t;
 typedef struct _mm_bitmap_t{
-    uint8_t map[MM_BITMAP_MAP_SIZE_BYTE];
+    uint8_t map[MM_BITMAP_MAP_SIZE_BYTE]; //位图，每一位代表一页
     mm_region_t region[MM_REGION_CNT_MAX];
+    int region_cnt; //有多少区域
 }mm_bitmap_t;
 
 void mm_bitmap_init(boot_info_t* boot_info) ;
@@ -19,5 +20,6 @@ ph_addr_t mm_bitmap_alloc_page();
 void mm_bitmap_free_page(ph_addr_t addr);
 ph_addr_t mm_bitmap_alloc_pages(uint32_t num_pages);
 void mm_bitmap_free_pages(ph_addr_t start_addr, uint32_t num_pages);
+uint32_t calc_bitmap_pages();
 void mm_bitmap_print();
 #endif

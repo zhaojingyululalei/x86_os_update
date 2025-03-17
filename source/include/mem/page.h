@@ -3,8 +3,9 @@
 
 #include "types.h"
 #include "tools/list.h"
-#include "task/task.h"
 #include "pdt.h"
+#include "task/task.h"
+#include "tools/rb_tree.h"
 typedef enum _page_type_t{
     PAGE_TYPE_NONE,
     PAGE_TYPE_FILE, //文件页  读文件
@@ -15,11 +16,19 @@ typedef enum _page_type_t{
 /**
  * @brief 物理页管理
  */
+typedef struct {
+    vm_addr_t vmaddr;
+    task_t* task;
+    list_node_t node;
+}page_owner_t;
 typedef struct _page_t{
     page_type_t type;
-    ph_addr_t addr;
-    task_t* tasks[TASK_LIMIT_CNT];//拥有该页的进程
+    ph_addr_t phaddr;
+    list_t onwers_list;
+    list_t task_list;//拥有该页的进程
     int refs; //引用计数，拥有该页的进程数
-    
+    rb_node_t tnode; //插入红黑树用的
+    list_node_t lnode; //用于分配page_t
 }page_t;
+void page_manager_init(void);
 #endif
