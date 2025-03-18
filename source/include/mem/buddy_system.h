@@ -17,13 +17,6 @@ typedef struct _bucket_t{
 }bucket_t;
 
 
-
-
-bucket_t* bucket_alloc();
-void bucket_free(bucket_t* bucket);
-void bucket_mempool_init(void);
-
-
 typedef struct {
     addr_t start; //管理的起始地址
     size_t size; //管理的大小
@@ -31,9 +24,6 @@ typedef struct {
     rb_tree_t tree; //红黑树，存放所有空闲可供分配的桶
 }buddy_system_t;
 
-void buddy_system_init(buddy_system_t* buddy,addr_t start,size_t size);
-void *buddy_system_alloc(buddy_system_t *buddy, size_t size);
-void buddy_system_free(buddy_system_t *buddy, void *addr) ;
 
 
 
@@ -57,10 +47,28 @@ typedef struct _buddy_zone_t{
     rb_node_t rbnode; //往树上挂
 }buddy_zone_t;
 
-buddy_zone_t *zone_alloc(void);
-void zone_free(buddy_zone_t* zone);
 
-void buddy_dynamic_system_init(buddy_system_t *buddy, addr_t start, size_t size);
-void *buddy_system_dynamic_alloc(buddy_system_t *buddy, size_t size);
-void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr);
+//静态的伙伴系统内存池
+typedef struct {
+    buddy_system_t sys;
+
+    
+    void* (*alloc)(buddy_system_t* sys,size_t size);
+    void (*free)(buddy_system_t* sys,void* ptr);
+}buddy_mmpool_fix_t; 
+
+//动态的伙伴系统内存池
+typedef struct {
+    buddy_system_t sys;
+
+    
+    void* (*alloc)(buddy_system_t* sys,size_t size);
+    void (*free)(buddy_system_t* sys,void* ptr);
+    void (*sbrk)(buddy_system_t* sys,void* base,size_t capacity);
+}buddy_mmpool_dyn_t; 
+
+void buddy_system_enable(void);
+void buddy_mmpool_fix_init(buddy_mmpool_fix_t* mmpool,void* base,size_t capacity);
+void buddy_mmpool_dyn_init(buddy_mmpool_dyn_t* mmpool,void* base,size_t capacity);
+
 #endif

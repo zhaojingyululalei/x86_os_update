@@ -59,7 +59,8 @@ void memory_init(void)
     ph_addr_t page_table = page_table_init();
     // 创建内核页表，恒等映射
     create_kernel_pdt(page_table);
-    bucket_mempool_init();//bucket_t内存池初始化,不管是内核kmalloc还是用户的malloc，只要获取桶结构，就依靠这个初始化
+    //bucket zone内存池初始化，从此可以使用伙伴系统算法
+    buddy_system_enable();
     //为kmalloc开辟空间，用于内核动态分配内存,并且初始化km_allocator
     //km_allocator_init();
 

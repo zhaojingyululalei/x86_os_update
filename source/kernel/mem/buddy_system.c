@@ -6,6 +6,40 @@
 #include "math.h"
 static list_t bucket_free_list; // 用于分配桶的链表
 static list_t zone_free_list;   // 用于分配buddy_zone的链表
+/**初始化容量数组，存储2^0~2^31值 */
+static size_t capacity_array[OS_32];
+static void capacity_array_init(void){
+    for (int i = 0; i < OS_32; i++)
+    {
+        capacity_array[i] = power(2,i);
+    }
+}
+// 二分查找第一个 >= capacity 的值
+static size_t find_greater_or_equal_capacity(size_t capacity) {
+    int left = 0, right = OS_32 - 1;
+    while (left < right) {
+        int mid = left + (right - left) / 2;
+        if (capacity_array[mid] >= capacity) {
+            right = mid;  // 可能是解，收缩右边界
+        } else {
+            left = mid + 1;  // 继续向右搜索
+        }
+    }
+    return capacity_array[left] >= capacity ? capacity_array[left] : 0; // 0 表示未找到
+}
+// 二分查找第一个 <= capacity 的值
+static size_t find_less_or_equal_capacity(size_t capacity) {
+    int left = 0, right = OS_32 - 1;
+    while (left < right) {
+        int mid = left + (right - left + 1) / 2; // 向上取整，防止死循环
+        if (capacity_array[mid] <= capacity) {
+            left = mid;  // 可能是解，继续向右搜索
+        } else {
+            right = mid - 1;  // mid 太大，收缩右边界
+        }
+    }
+    return capacity_array[left] <= capacity ? capacity_array[left] : 0; // 0 表示未找到
+}
 /*******************桶的相关操作*********** */
 /**
  * @brief 补充bucket_t结构：bucket_T结构不够用了，再申请内存，往bucket_free_list中添加
@@ -33,7 +67,7 @@ static void zone_supplement(void)
 /**
  * @brief 分配一个桶结构
  */
-bucket_t *bucket_alloc()
+static bucket_t *bucket_alloc()
 {
     while (bucket_free_list.count <= 0)
     {
@@ -44,7 +78,7 @@ bucket_t *bucket_alloc()
     bucket_t *bucket = list_node_parent(node, bucket_t, lnode);
     return bucket;
 }
-buddy_zone_t *zone_alloc(void)
+static buddy_zone_t *zone_alloc(void)
 {
     while (zone_free_list.count <= 0)
     {
@@ -59,19 +93,22 @@ buddy_zone_t *zone_alloc(void)
 /**
  * @brief 释放一个bucket_t结构
  */
-void bucket_free(bucket_t *bucket)
+static void bucket_free(bucket_t *bucket)
 {
     memset(bucket, 0, sizeof(bucket_t));
     list_insert_last(&bucket_free_list, &bucket->lnode);
 }
-void zone_free(buddy_zone_t *zone)
+static void zone_free(buddy_zone_t *zone)
 {
     memset(zone, 0, sizeof(buddy_zone_t));
     list_insert_last(&zone_free_list, &zone->lnode);
 }
-void bucket_mempool_init(void)
+static void bucket_mempool_init(void)
 {
     list_init(&bucket_free_list);
+    
+}
+static void zone_mempool_init(void){
     list_init(&zone_free_list);
 }
 
@@ -143,72 +180,6 @@ static void zone_print(buddy_zone_t *zone)
         cur = cur->next;
     }
 }
-void buddy_system_init(buddy_system_t *buddy, addr_t start, size_t size)
-{
-    if (!buddy)
-        return; // 检查指针是否有效
-
-    buddy->start = start;
-    buddy->size = size;
-
-    // 初始化红黑树
-    rb_tree_init(&buddy->tree, bucket_compare, bucket_get_node, node_get_bucket);
-
-    // 创建初始桶
-    bucket_t *initial_bucket = bucket_alloc();
-    initial_bucket->addr = start;
-    initial_bucket->capacity = size;
-    initial_bucket->state = BUCKET_STATE_FREE;
-
-    // 将初始桶插入红黑树
-    rb_tree_insert(&buddy->tree, initial_bucket);
-}
-
-
-/**
- * @brief 伙伴系统分配 size大小的内存
- */
-
-void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
-{
-    if (!buddy || size == 0)
-        return NULL;
-
-    size += sizeof(buddy_alloc_head_t); // 预留头部信息
-
-    // 找到第一个大于等于 size 的桶
-    rb_node_t *node = rb_tree_find_first_greater_or_equal(&buddy->tree, (void *)size, bucket_find_by_capacity);
-    if (node == buddy->tree.nil)
-        return NULL; // 没有合适的桶
-
-    bucket_t *bucket = node_get_bucket(node); // 找到这个桶
-    // 分配该 `bucket`，并从红黑树中移除
-    rb_tree_remove(&buddy->tree, bucket);
-    bucket->state = BUCKET_STATE_USED;
-    // **分裂逻辑**  偶数分裂
-    while (bucket->capacity / 2 >= size && (bucket->capacity / 2) % 2 == 0)
-    {
-        bucket_t *new_bucket = bucket_alloc();
-        new_bucket->capacity = bucket->capacity / 2;
-        new_bucket->addr = bucket->addr + new_bucket->capacity;
-        new_bucket->state = BUCKET_STATE_FREE;
-
-        bucket->capacity /= 2;
-
-        
-
-        // 插入新的 `new_bucket` 到红黑树
-        rb_tree_insert(&buddy->tree, new_bucket);
-    }
-    
-    rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
-
-    // 记录桶信息
-    buddy_alloc_head_t *header = (buddy_alloc_head_t *)bucket->addr;
-    header->bucket = bucket;
-
-    return (void *)(bucket->addr + sizeof(buddy_alloc_head_t));
-}
 /**
  * @brief 获取某个桶的兄弟桶
  */
@@ -250,10 +221,78 @@ static bucket_t* dynamic_get_buddy(buddy_system_t* buddy,bucket_t* bucket){
     }
     return NULL; //兄弟节点还在使用，
 }
+static void buddy_system_init(buddy_system_t *buddy, addr_t start, size_t size)
+{
+    if (!buddy)
+        return; // 检查指针是否有效
+
+    size = find_less_or_equal_capacity(size); //确保size是2^n
+    buddy->start = start;
+    buddy->size = size;
+
+    // 初始化红黑树
+    rb_tree_init(&buddy->tree, bucket_compare, bucket_get_node, node_get_bucket);
+
+    // 创建初始桶
+    bucket_t *initial_bucket = bucket_alloc();
+    initial_bucket->addr = start;
+    initial_bucket->capacity = size;
+    initial_bucket->state = BUCKET_STATE_FREE;
+
+    // 将初始桶插入红黑树
+    rb_tree_insert(&buddy->tree, initial_bucket);
+}
+
+
+/**
+ * @brief 伙伴系统分配 size大小的内存
+ */
+
+static void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
+{
+    if (!buddy || size == 0)
+        return NULL;
+
+    size += sizeof(buddy_alloc_head_t); // 预留头部信息
+
+    // 找到第一个大于等于 size 的桶
+    rb_node_t *node = rb_tree_find_first_greater_or_equal(&buddy->tree, (void *)size, bucket_find_by_capacity);
+    if (node == buddy->tree.nil)
+        return NULL; // 没有合适的桶
+
+    bucket_t *bucket = node_get_bucket(node); // 找到这个桶
+    // 分配该 `bucket`，并从红黑树中移除
+    rb_tree_remove(&buddy->tree, bucket);
+    bucket->state = BUCKET_STATE_USED;
+    // **分裂逻辑**  偶数分裂
+    while (bucket->capacity / 2 >= size && (bucket->capacity / 2) % 2 == 0)
+    {
+        bucket_t *new_bucket = bucket_alloc();
+        new_bucket->capacity = bucket->capacity / 2;
+        new_bucket->addr = bucket->addr + new_bucket->capacity;
+        new_bucket->state = BUCKET_STATE_FREE;
+
+        bucket->capacity /= 2;
+
+        
+
+        // 插入新的 `new_bucket` 到红黑树
+        rb_tree_insert(&buddy->tree, new_bucket);
+    }
+    
+    rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
+
+    // 记录桶信息
+    buddy_alloc_head_t *header = (buddy_alloc_head_t *)bucket->addr;
+    header->bucket = bucket;
+
+    return (void *)(bucket->addr + sizeof(buddy_alloc_head_t));
+}
+
 /**
  * @brief 伙伴系统释放addr的内存
  */
-void buddy_system_free(buddy_system_t *buddy, void *addr)
+static void buddy_system_free(buddy_system_t *buddy, void *addr)
 {
     if (!buddy || !addr)
         return;
@@ -289,13 +328,15 @@ void buddy_system_free(buddy_system_t *buddy, void *addr)
 
     // **插入合并后的 `bucket` 回红黑树**
     rb_tree_insert(&buddy->tree, bucket);
+    rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
 }
 
-void buddy_dynamic_system_init(buddy_system_t *buddy, addr_t start, size_t size)
+static void buddy_dynamic_system_init(buddy_system_t *buddy, addr_t start, size_t size)
 {
     if (!buddy)
         return; // 检查指针是否有效
 
+    size = find_less_or_equal_capacity(size);//确保size是2^n
     buddy->start = start;
     buddy->size = size;
 
@@ -317,6 +358,9 @@ void buddy_dynamic_system_init(buddy_system_t *buddy, addr_t start, size_t size)
     // 将初始zone插入红黑树
     rb_tree_insert(&buddy->tree, initial_zone);
 }
+/**
+ * @brief 找一个zone，有就返回，没有就创建一个，加入红黑树并返回
+ */
 static buddy_zone_t *find_zone_by_capacity(buddy_system_t *buddy, size_t capacity)
 {
     rb_node_t *zone_node = rb_tree_find_by(&buddy->tree, capacity, zone_find_by_capacity);
@@ -336,7 +380,7 @@ static buddy_zone_t *find_zone_by_capacity(buddy_system_t *buddy, size_t capacit
     return new_zone;
 }
 /**支持sbrk的分配 */
-void *buddy_system_dynamic_alloc(buddy_system_t *buddy, size_t size)
+static void *buddy_system_dynamic_alloc(buddy_system_t *buddy, size_t size)
 {
     if (!buddy || size == 0)
         return NULL;
@@ -392,7 +436,7 @@ void *buddy_system_dynamic_alloc(buddy_system_t *buddy, size_t size)
     return (void *)(bucket->addr + sizeof(buddy_alloc_head_t));
 }
 
-void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr)
+static void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr)
 {
     if (!buddy || !addr)
         return;
@@ -445,3 +489,43 @@ void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr)
     list_insert_last(&new_zone->buckets_list, &bucket->lnode);
     rb_tree_inorder(&buddy->tree, &buddy->tree.root, zone_print);
 }
+
+/**
+ * @brief 伙伴系统动态扩容
+ *        把首地址为addr，容量为capacity的内存加入伙伴系统进行管理
+ */
+static void buddy_system_dynamic_expand(buddy_system_t* buddy,void* addr,size_t capacity){
+    //找一个zone，有就返回，没有就创建一个，加入红黑树并返回
+    buddy_zone_t* new_zone = find_zone_by_capacity(buddy,capacity);
+
+    //创建一个桶
+    bucket_t* new_bucket = bucket_alloc();
+    new_bucket->addr = addr;
+    new_bucket->capacity = capacity;
+    new_bucket->state = BUCKET_STATE_FREE;
+
+    //将桶加入zone
+    list_insert_last(&new_zone->buckets_list,&new_bucket->lnode);
+
+}
+
+void buddy_system_enable(void){
+    bucket_mempool_init();
+    zone_mempool_init();
+    capacity_array_init();
+}
+
+void buddy_mmpool_fix_init(buddy_mmpool_fix_t* mmpool,void* base,size_t capacity){
+    buddy_system_init(&mmpool->sys,base,capacity);
+    mmpool->alloc = buddy_system_alloc;
+    mmpool->free = buddy_system_free;
+
+}
+void buddy_mmpool_dyn_init(buddy_mmpool_dyn_t* mmpool,void* base,size_t capacity){
+    buddy_dynamic_system_init(&mmpool->sys,base,capacity);
+    mmpool->alloc = buddy_system_dynamic_alloc;
+    mmpool->free = buddy_system_dynamic_free;
+    mmpool->sbrk = buddy_system_dynamic_expand;
+
+}
+
