@@ -280,7 +280,7 @@ static void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
         rb_tree_insert(&buddy->tree, new_bucket);
     }
     
-    rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
+    //rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
 
     // 记录桶信息
     buddy_alloc_head_t *header = (buddy_alloc_head_t *)bucket->addr;
@@ -328,7 +328,7 @@ static void buddy_system_free(buddy_system_t *buddy, void *addr)
 
     // **插入合并后的 `bucket` 回红黑树**
     rb_tree_insert(&buddy->tree, bucket);
-    rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
+    //rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
 }
 
 static void buddy_dynamic_system_init(buddy_system_t *buddy, addr_t start, size_t size)
@@ -426,7 +426,7 @@ static void *buddy_system_dynamic_alloc(buddy_system_t *buddy, size_t size)
         rb_tree_remove(&buddy->tree, zone);
         zone_free(zone);
     }
-    rb_tree_inorder(&buddy->tree, &buddy->tree.root, zone_print);
+    //rb_tree_inorder(&buddy->tree, &buddy->tree.root, zone_print);
 
     
     // 记录桶信息
@@ -487,7 +487,7 @@ static void buddy_system_dynamic_free(buddy_system_t *buddy, void *addr)
     buddy_zone_t* new_zone = find_zone_by_capacity(buddy,bucket->capacity);
     // 找到zone，把桶放入链表
     list_insert_last(&new_zone->buckets_list, &bucket->lnode);
-    rb_tree_inorder(&buddy->tree, &buddy->tree.root, zone_print);
+    //rb_tree_inorder(&buddy->tree, &buddy->tree.root, zone_print);
 }
 
 /**

@@ -40,10 +40,11 @@ void create_sub_children()
     printf("Child exiting: PID=%d\r\n", getpid());
     exit(0);
 }
+int a = 10;
 void init_task_main(void)
 {
     printf("Main process started: PID=%d\r\n", getpid());
-
+    
     pid_t child_pids[NUM_CHILD];
 
     for (int i = 0; i < NUM_CHILD; i++)
@@ -57,7 +58,9 @@ void init_task_main(void)
         if (child_pids[i] == 0)
         {
             // 子进程
-            printf("Child created: PID=%d, Parent PID=%d\r\n", getpid(), getppid());
+            a = 20;
+            
+            printf("Child created: PID=%d, Parent PID=%d, a=%d\r\n", getpid(), getppid(),a);
             create_sub_children();
         }
     }
@@ -77,6 +80,6 @@ void init_task_main(void)
     while (true)
     {
         sleep(3000);
-        printf("Main process finished: PID=%d\r\n", getpid());
+        printf("Main process finished: PID=%d, a=%d\r\n", getpid(),a);
     }
 }

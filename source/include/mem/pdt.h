@@ -50,7 +50,7 @@ ph_addr_t vm_to_ph(page_entry_t* page_table,vm_addr_t vmaddr);
 int pdt_set_entry(page_entry_t* page_table, vm_addr_t vm_addr,ph_addr_t ph_addr,uint32_t size,uint16_t attr);
 int copy_kernel_pdt(page_entry_t *task_pdt);
 void debug_print_page_table();
-
+page_entry_t* get_global_page_table(void);
 
 int page_fault_cow(vm_addr_t PF_vm);
 #endif

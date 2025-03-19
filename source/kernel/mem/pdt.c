@@ -6,6 +6,7 @@
 #include "string.h"
 #include "task/task.h"
 #include "task/sche.h"
+#include "mem/page.h"
 // 页目录  32位系统，每个页表表项32位 4字节  总共有4096/(32/8) = 1024项
 
 page_entry_t g_page_table[PAGE_TABLE_ENTRY_CNT] __attribute__((aligned(4096)));
@@ -110,7 +111,12 @@ ph_addr_t page_table_init(void)
     }
     return (ph_addr_t)g_page_table;
 }
-
+/**
+ * @brief 获取内核页表
+ */
+page_entry_t* get_global_page_table(void){
+    return g_page_table;
+}
 /**
  * @brief 打印页表内容
  * @param pdt_base 一级页表（页目录表）的基地址
@@ -218,14 +224,21 @@ page_entry_t* get_pte(page_entry_t* page_table,vm_addr_t vm){
     return NULL;
 }
 
+/**
+ * @brief 页异常处理写时复制
+ */
 int page_fault_cow(vm_addr_t PF_vm){
     task_t* cur = cur_task();
     //获取错误页表表项
     page_entry_t* fault_pte = get_pte(cur->page_table,PF_vm);
     if(fault_pte->ignored == PDE_COW && fault_pte->write ==0 && fault_pte->user==1){
-        ph_addr_t src = fault_pte->phaddr<<12;
-        ph_addr_t dest = mm_bitmap_alloc_page();
-        fault_pte->phaddr = dest>>12;
+        ph_addr_t src = fault_pte->phaddr<<12; //父进程的数据代码或者堆空间
+        ph_addr_t dest = mm_bitmap_alloc_page(); //子进程分配空间，重新拷贝，并替换源页表记录的物理地址
+
+        remove_one_page(cur,PF_vm);
+        record_one_page(cur,dest,PF_vm,PAGE_TYPE_ANON);
+
+        fault_pte->phaddr = dest>>12; //替换位新地址
         fault_pte->write = 1;
         fault_pte->ignored = 0;
 
@@ -237,3 +250,4 @@ int page_fault_cow(vm_addr_t PF_vm){
     return -1;
     
 }
+

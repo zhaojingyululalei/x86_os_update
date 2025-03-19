@@ -45,7 +45,7 @@ void kernel_init(boot_info_t *boot_info)
     
     task_manager_init();
     irq_enable_global();
-    test();
+    //test();
     jmp_to_usr_mode();
     
 

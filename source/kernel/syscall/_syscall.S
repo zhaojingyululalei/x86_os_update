@@ -3,7 +3,7 @@
 #include "cpu_cfg.h"
     .text
     .extern syscall_resolve
-    .global syscall_init,sysenter_handler
+    .global syscall_init,sysenter_handler,sys_handler_exit
 
 syscall_init:
     movl $0x174,%ecx # IA32_SYSENTER_CS
@@ -35,7 +35,8 @@ sysenter_handler:
     mov %edi,%gs
 
     call syscall_resolve
-    
+
+sys_handler_exit:
     add $(1*4),%esp 
     pop %edx
     pop %ecx

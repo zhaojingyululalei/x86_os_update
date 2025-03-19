@@ -25,10 +25,13 @@ typedef struct _page_t{
     page_type_t type;
     ph_addr_t phaddr;
     list_t onwers_list;
-    list_t task_list;//拥有该页的进程
     int refs; //引用计数，拥有该页的进程数
-    rb_node_t tnode; //插入红黑树用的
+    rb_node_t rbnode; //插入红黑树用的
     list_node_t lnode; //用于分配page_t
 }page_t;
 void page_manager_init(void);
+int record_one_page(task_t *task, ph_addr_t phaddr, vm_addr_t vmaddr, page_type_t type);
+int record_continue_pages(task_t* task,vm_addr_t vmstart,size_t size,page_type_t type);
+int remove_one_page(task_t* task,vm_addr_t vm_addr);
+int remove_pages(task_t* task,vm_addr_t vmstart,size_t size);
 #endif

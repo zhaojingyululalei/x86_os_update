@@ -9,6 +9,7 @@
 #include "algrithm.h"
 #include "irq/irq.h"
 #include "errno.h"
+#include "mem/page.h"
 static task_t task_buf[TASK_LIMIT_CNT];
 static list_t task_pool;
 /**
@@ -76,7 +77,7 @@ static task_t *create_init_task(void)
     ASSERT(start_vm == USR_ENTRY_BASE);
     task_attr_t attr;
     attr.stack_size = MEM_PAGE_SIZE;
-    attr.heap_size = 4*MEM_PAGE_SIZE;
+    attr.heap_size = 4 * MEM_PAGE_SIZE;
     task_t *init = create_task(start_vm, "init", TASK_PRIORITY_DEFAULT, &attr);
     if (!init)
     {
@@ -87,7 +88,65 @@ static task_t *create_init_task(void)
 
     return init;
 }
+/**
+ * @brief 创建或者fork或者clone一个任务后，记录其所有页
+ */
+static void record_all_pages_in_range(task_t *task)
+{
+    if (!task || !task->page_table) return;
 
+    page_entry_t *pde_table = task->page_table;
+
+    // 计算 PDE 范围（页目录索引）
+    int start_pde_idx = (USR_ENTRY_BASE >> 22); // 0x80000000 >> 22
+    int end_pde_idx = (USR_HEAP_BASE >> 22);    // 0x90000000 >> 22
+
+    for (int pde_idx = start_pde_idx; pde_idx < end_pde_idx; pde_idx++)
+    {
+        if (!pde_table[pde_idx].present) continue;  // 跳过不存在的页目录项
+
+        page_entry_t *pte_table = (page_entry_t *)(pde_table[pde_idx].phaddr << 12);
+        if (!pte_table) continue;
+
+        // 计算 PTE 范围（页表索引）
+        int start_pte_idx = (pde_idx == start_pde_idx) ? ((USR_ENTRY_BASE >> 12) & 0x3FF) : 0;
+        int end_pte_idx = (pde_idx == end_pde_idx - 1) ? ((USR_HEAP_BASE >> 12) & 0x3FF) : PAGE_TABLE_ENTRY_CNT;
+
+        for (int pte_idx = start_pte_idx; pte_idx < end_pte_idx; pte_idx++)
+        {
+            if (!pte_table[pte_idx].present) continue;  // 跳过不存在的页表项
+
+            vm_addr_t vmaddr = (pde_idx << 22) | (pte_idx << 12);
+            ph_addr_t phaddr = pte_table[pte_idx].phaddr << 12;
+
+            record_one_page(task, phaddr, vmaddr, PAGE_TYPE_ANON);
+        }
+    }
+}
+
+static void task_record_pages(task_t *task)
+{
+    // 在这里记录所有二级页表占用的空间
+    for (int i = USR_ENTRY_BASE >> 22; i < 1024; i++)
+    {
+        if (task->page_table[i].present)
+        {
+            ph_addr_t phaddr = task->page_table[i].phaddr << 12;
+            record_one_page(task, phaddr, phaddr, PAGE_TYPE_ANON);
+        }
+    }
+    // 记录页目录
+    record_one_page(task, task->page_table, task->page_table, PAGE_TYPE_ANON);
+
+    //记录代码段，数据段，bss段等用到的页
+    record_all_pages_in_range(task);
+    // 记录栈
+    record_continue_pages(task, task->stack_base, task->attr.stack_size, PAGE_TYPE_ANON);
+    // 记录任务的内核栈
+    record_one_page(task,task->esp0-MEM_PAGE_SIZE,task->esp0-MEM_PAGE_SIZE,PAGE_TYPE_ANON);
+    // 记录堆
+    record_continue_pages(task, task->heap_base, task->attr.heap_size, PAGE_TYPE_ANON);
+}
 /**
  * @brief 跳转到用户态去执行，内核态里的东西没用了。 只能从中断或者系统调用再次返回内核态
  */
@@ -137,6 +196,8 @@ void jmp_to_usr_mode(void)
     tss->cs = SELECTOR_USR_CODE_SEG;
     tss->eip = init_task_entry;
 
+    //记录所有page_t为匿名页
+    //task_record_pages(task);
     irq_leave_protection(state);
 
     // 模拟中断返回
@@ -277,7 +338,7 @@ void task_manager_init(void)
     id_pool_init(TASK_PID_START, TASK_PID_END, &task_manager.pid_pool);
     list_init(&task_manager.ready_list);
     list_init(&task_manager.sleep_list);
-    // 创建空闲进程
+    // 创建空闲进程,永不释放
     task_manager.idle = create_task((ph_addr_t)idle_task, "idle", TASK_PRIORITY_DEFAULT, NULL);
     task_manager.idle->state = TASK_STATE_READY;
     // 创建first进程
@@ -478,10 +539,13 @@ int sys_fork(void)
     child->ppid = parent->pid;
     // 将子进程加入父进程的child_list中
     list_insert_last(&parent->child_list, &child->child_node);
-    //将子进程加入到taskmanger的tasks中
+    // 将子进程加入到taskmanger的tasks中
     task_manager.tasks[child->pid] = child;
     // 将子进程加入就绪队列
     task_set_ready(child);
+
+    //记录子进程页信息
+    //task_record_pages(child);
     irq_leave_protection(state);
     return child->pid;
 }
@@ -498,20 +562,21 @@ int sys_getppid(void)
 void sys_exit(int status)
 {
     task_t *cur = cur_task();
-    task_t* parent = parent_task();
+    task_t *parent = parent_task();
     ASSERT(cur->state == TASK_STATE_RUNNING);
     ASSERT(!cur->list);
-    ASSERT(cur != task_manager.init);//init进程永不退出
+    ASSERT(cur != task_manager.init); // init进程永不退出
     irq_state_t state = irq_enter_protection();
     cur->status = status;
     cur->state = TASK_STATE_ZOMBIE;
-    //查看该进程是否存在子进程，如果存在子进程，交给父进程处理，自己退出
+    // 查看该进程是否存在子进程，如果存在子进程，交给父进程处理，自己退出
     if (list_count(&cur->child_list))
     {
-        list_join(&cur->child_list,&parent->child_list);
+        list_join(&cur->child_list, &parent->child_list);
     }
-    //唤醒父进程，可以回收了
-    if(parent->list == &task_manager.wait_list && parent->state == TASK_STATE_WAITING){
+    // 唤醒父进程，可以回收了
+    if (parent->list == &task_manager.wait_list && parent->state == TASK_STATE_WAITING)
+    {
         task_set_ready(parent);
     }
     sys_yield();
@@ -522,11 +587,11 @@ void sys_exit(int status)
  */
 int task_collect(task_t *task)
 {
-    //堆栈资源释放(内核共享,代码段，数据区写时复制，栈各是各的)
+    // 堆栈资源释放(内核共享,代码段，数据区写时复制，栈各是各的)
 
-    //页表回收
+    // 页表回收
 
-    //task_manager相关资源
+    // task_manager相关资源
 }
 
 /**
@@ -536,12 +601,13 @@ int sys_wait(int *status)
 {
     int ret_pid = -1;
     task_t *parent = cur_task();
-    
+
     while (true)
     {
         irq_state_t state = irq_enter_protection();
-        if(!list_count(&parent->child_list)){
-            //一个子进程都没有，返回-1
+        if (!list_count(&parent->child_list))
+        {
+            // 一个子进程都没有，返回-1
             parent->err_num = ECHILD;
             return -1;
         }
@@ -559,15 +625,15 @@ int sys_wait(int *status)
                 list_remove(&parent->child_list, cur_node); // 从子进程队列中移除
                 task_collect(cur_child);                    // 释放该进程所有资源
                 irq_leave_protection(state);
-                return ret_pid; //本函数唯一可以退出的出口
+                return ret_pid; // 本函数唯一可以退出的出口
             }
 
             cur_node = next_node;
         }
         // 没有可以回收的子进程
         task_set_wait(parent); // 加入task_manager的等待队列
-        sys_yield(); //调度走，以后不要再执行了，等待某个子进程退出后唤醒它
-        //唤醒之后，接着从遍历child_list链表开始执行
+        sys_yield();           // 调度走，以后不要再执行了，等待某个子进程退出后唤醒它
+        // 唤醒之后，接着从遍历child_list链表开始执行
         irq_leave_protection(state);
     }
 }

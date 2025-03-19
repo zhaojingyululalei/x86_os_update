@@ -60,11 +60,11 @@ void memory_init(void)
     // 创建内核页表，恒等映射
     create_kernel_pdt(page_table);
     //bucket zone内存池初始化，从此可以使用伙伴系统算法
-    buddy_system_enable();
+    //buddy_system_enable();
     //为kmalloc开辟空间，用于内核动态分配内存,并且初始化km_allocator
     //km_allocator_init();
 
-    page_manager_init();//用page_t结构记录物理页信息
+    //page_manager_init();//用page_t结构记录物理页信息
     //vmalloc空间管理初始化
 }
 
