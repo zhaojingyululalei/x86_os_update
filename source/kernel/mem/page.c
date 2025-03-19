@@ -79,7 +79,7 @@ void page_t_free(page_t *page)
 }
 
 /**
- * @brief 创建一个页，谁创建的，创建的什么页
+ * @brief 创建一个页，谁创建的，创建的什么页,然后插到树上
  */
 int create_one_page(task_t *task, ph_addr_t phaddr, vm_addr_t vmaddr, page_type_t type)
 {
@@ -94,6 +94,7 @@ int create_one_page(task_t *task, ph_addr_t phaddr, vm_addr_t vmaddr, page_type_
 
     list_insert_last(&page->onwers_list, &owner->node);
     page->refs = 1;
+    rb_tree_insert(&page_tree,page);
     return 0;
 }
 /**
@@ -119,6 +120,8 @@ static page_t *find_one_page(ph_addr_t phaddr)
  */
 int record_one_page(task_t *task, ph_addr_t phaddr, vm_addr_t vmaddr, page_type_t type)
 {
+    ASSERT(phaddr%MEM_PAGE_SIZE==0);
+    ASSERT(vmaddr %MEM_PAGE_SIZE == 0);
     irq_state_t state = irq_enter_protection();
     
     page_t *page = find_one_page(phaddr);
@@ -189,6 +192,7 @@ static page_owner_t* find_page_owner_by_task(page_t* page,task_t* task){
  */
 
 int remove_one_page(task_t* task,vm_addr_t vm_addr){
+    ASSERT(vm_addr % MEM_PAGE_SIZE == 0);
     irq_state_t state = irq_enter_protection();
     
     //通过映射，获取物理地址

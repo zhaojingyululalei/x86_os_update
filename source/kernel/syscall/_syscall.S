@@ -26,6 +26,7 @@ sysenter_handler:
     push %esi # 保存用户栈段
     push %ecx
     push %edx 
+    push %esp
     push %eax 
     # 全部替换为内核段
     mov %ss,%edi
@@ -36,8 +37,8 @@ sysenter_handler:
 
     call syscall_resolve
 
+    add $(2*4),%esp
 sys_handler_exit:
-    add $(1*4),%esp 
     pop %edx
     pop %ecx
     pop %esi # 用户栈段

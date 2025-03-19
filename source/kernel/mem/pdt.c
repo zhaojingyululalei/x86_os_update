@@ -235,8 +235,8 @@ int page_fault_cow(vm_addr_t PF_vm){
         ph_addr_t src = fault_pte->phaddr<<12; //父进程的数据代码或者堆空间
         ph_addr_t dest = mm_bitmap_alloc_page(); //子进程分配空间，重新拷贝，并替换源页表记录的物理地址
 
-        remove_one_page(cur,PF_vm);
-        record_one_page(cur,dest,PF_vm,PAGE_TYPE_ANON);
+        remove_one_page(cur,align_down(PF_vm,MEM_PAGE_SIZE));
+        record_one_page(cur,dest,align_down(PF_vm,MEM_PAGE_SIZE),PAGE_TYPE_ANON);
 
         fault_pte->phaddr = dest>>12; //替换位新地址
         fault_pte->write = 1;

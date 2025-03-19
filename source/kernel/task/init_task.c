@@ -80,6 +80,6 @@ void init_task_main(void)
     while (true)
     {
         sleep(3000);
-        printf("Main process finished: PID=%d, a=%d\r\n", getpid(),a);
+        printf("Main process finished: PID=%d, a=%d\r\n", getpid(),10);
     }
 }

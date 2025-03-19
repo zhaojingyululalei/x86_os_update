@@ -6,6 +6,7 @@
 #include "types.h"
 #include "cpu.h"
 #include "mem/pdt.h"
+#include "task/task.h"
 static void dump_core_regs(exception_frame_t *frame)
 {
     // 打印CPU寄存器相关内容
@@ -43,6 +44,7 @@ static void dump_core_regs(exception_frame_t *frame)
 
 static void do_default_handler(exception_frame_t *frame, const char *message)
 {
+    dbg_error("task:%d divider err\r\n",sys_getpid());
     dbg_info("--------------------------------\r\n");
     dbg_info("IRQ/Exception happend: %s.\r\n", message);
     dump_core_regs(frame);

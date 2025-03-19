@@ -123,6 +123,38 @@ static void record_all_pages_in_range(task_t *task)
         }
     }
 }
+static void remove_all_pages_in_range(task_t *task)
+{
+    if (!task || !task->page_table) return;
+
+    page_entry_t *pde_table = task->page_table;
+
+    // 计算 PDE 范围（页目录索引）
+    int start_pde_idx = (USR_ENTRY_BASE >> 22); // 0x80000000 >> 22
+    int end_pde_idx = (USR_HEAP_BASE >> 22);    // 0x90000000 >> 22
+
+    for (int pde_idx = start_pde_idx; pde_idx < end_pde_idx; pde_idx++)
+    {
+        if (!pde_table[pde_idx].present) continue;  // 跳过不存在的页目录项
+
+        page_entry_t *pte_table = (page_entry_t *)(pde_table[pde_idx].phaddr << 12);
+        if (!pte_table) continue;
+
+        // 计算 PTE 范围（页表索引）
+        int start_pte_idx = (pde_idx == start_pde_idx) ? ((USR_ENTRY_BASE >> 12) & 0x3FF) : 0;
+        int end_pte_idx = (pde_idx == end_pde_idx - 1) ? ((USR_HEAP_BASE >> 12) & 0x3FF) : PAGE_TABLE_ENTRY_CNT;
+
+        for (int pte_idx = start_pte_idx; pte_idx < end_pte_idx; pte_idx++)
+        {
+            if (!pte_table[pte_idx].present) continue;  // 跳过不存在的页表项
+
+            vm_addr_t vmaddr = (pde_idx << 22) | (pte_idx << 12);
+            ph_addr_t phaddr = pte_table[pte_idx].phaddr << 12;
+
+            remove_one_page(task,  vmaddr);
+        }
+    }
+}
 
 static void task_record_pages(task_t *task)
 {
@@ -146,6 +178,29 @@ static void task_record_pages(task_t *task)
     record_one_page(task,task->esp0-MEM_PAGE_SIZE,task->esp0-MEM_PAGE_SIZE,PAGE_TYPE_ANON);
     // 记录堆
     record_continue_pages(task, task->heap_base, task->attr.heap_size, PAGE_TYPE_ANON);
+}
+static void task_collect_pages(task_t* task){
+    
+
+    //回收代码段，数据段，bss段等用到的页
+    remove_all_pages_in_range(task);
+    // 回收栈
+    remove_pages(task,task->stack_base,task->attr.stack_size);
+    // 回收任务的内核栈
+    remove_one_page(task,task->esp0-MEM_PAGE_SIZE);
+    // 回收堆
+    remove_pages(task, task->heap_base, task->attr.heap_size);
+    //释放所有二级页表空间
+    for (int i = USR_ENTRY_BASE >> 22; i < 1024; i++)
+    {
+        if (task->page_table[i].present)
+        {
+            ph_addr_t phaddr = task->page_table[i].phaddr << 12;
+            remove_one_page(task, phaddr);
+        }
+    }
+    //回收页目录空间
+    remove_one_page(task, task->page_table);
 }
 /**
  * @brief 跳转到用户态去执行，内核态里的东西没用了。 只能从中断或者系统调用再次返回内核态
@@ -197,7 +252,7 @@ void jmp_to_usr_mode(void)
     tss->eip = init_task_entry;
 
     //记录所有page_t为匿名页
-    //task_record_pages(task);
+    task_record_pages(task);
     irq_leave_protection(state);
 
     // 模拟中断返回
@@ -472,7 +527,7 @@ static void copy_parent_pdt(task_t *child, task_t *parent)
 /**
  * @brief 复制父进程,创建子进程
  */
-
+extern void sys_handler_exit(void);
 int sys_fork(void)
 {
     int ret;
@@ -518,17 +573,16 @@ int sys_fork(void)
 
     // 给子进程分配内核栈空间
     child->esp0 = mm_bitmap_alloc_page() + MEM_PAGE_SIZE;
-
+    
     // 获取父进程内核 sysenter_frmae栈帧,获取返回到用户态的 esp和eip
     sysenter_frame_t *sysenter_frame = (sysenter_frame_t *)(parent->esp0 - sizeof(sysenter_frame_t));
-    vm_addr_t ret_esp = sysenter_frame->ecx;
-    vm_addr_t ret_eip = sysenter_frame->edx;
+    vm_addr_t ret_esp = sysenter_frame->esp;
+    vm_addr_t ret_eip = sys_handler_exit;
     vm_addr_t ret_ebp = sysenter_frame->ebp;
     // 处理子进程栈帧 task_frame_t  （子进程是通过task_switch进行切换的，而不是直接jmp to usr mode,栈帧必须处理好）
     vm_addr_t c_vm_stack_top = ret_esp - sizeof(task_frame_t);
     ph_addr_t c_ph_frame = vm_to_ph(child->page_table, c_vm_stack_top);
     task_frame_t *c_frame = (task_frame_t *)c_ph_frame;
-    c_frame->esi = c_frame->edi = c_frame->ebx = 0;
     c_frame->ebp = ret_ebp;
     c_frame->eip = ret_eip;
 
@@ -545,8 +599,9 @@ int sys_fork(void)
     task_set_ready(child);
 
     //记录子进程页信息
-    //task_record_pages(child);
+    task_record_pages(child);
     irq_leave_protection(state);
+    sys_yield();
     return child->pid;
 }
 
@@ -587,11 +642,12 @@ void sys_exit(int status)
  */
 int task_collect(task_t *task)
 {
-    // 堆栈资源释放(内核共享,代码段，数据区写时复制，栈各是各的)
-
-    // 页表回收
+    task_collect_pages(task);
 
     // task_manager相关资源
+    task_manager.tasks[task->pid] = NULL;
+    release_id(&task_manager.pid_pool,task->pid);
+    task_pool_free(task);
 }
 
 /**

@@ -83,7 +83,7 @@ typedef struct task_frame_t
     uint32_t eip;
 } task_frame_t; //调用约定栈帧，被调用者保存的
 typedef struct _sysenter_frame_t{
-    uint32_t eax;
+    uint32_t esp;
     uint32_t edx; //存着调用返回的ip
     uint32_t ecx; //存着调用返回的esp
     uint32_t esi;
