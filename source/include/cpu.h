@@ -55,7 +55,7 @@ typedef union _gate_desc_t
     {
         uint16_t offset_15_0;
         uint16_t selector;
-        uint8_t param; // 参数,注：调用门参数个数最多31个
+        uint8_t param; 
         uint8_t type : 5;
         uint8_t DPL : 2;
         uint8_t p : 1;

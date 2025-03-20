@@ -42,10 +42,10 @@
 
 //GDTR设置
 #define GDT_ENTRYS_NUM  256
-#define GDTR_LIMIT  (GDT_ENTRYS_NUM << 3 - 1)
+#define GDTR_LIMIT  ((GDT_ENTRYS_NUM << 3) - 1)
 //IDTR设置
 #define IDT_ENTRYS_NUM  256
-#define IDTR_LIMIT (IDT_ENTRYS_NUM << 3 - 1)
+#define IDTR_LIMIT ((IDT_ENTRYS_NUM << 3) - 1)
 //段选择子设置
 
 #define RPL_0   0

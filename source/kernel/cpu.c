@@ -8,6 +8,7 @@
 #include "apci.h"
 #include "string.h"
 #include "task/task.h"
+#include "task/signal.h"
 /**
  * gdt表首地址
  */
@@ -31,6 +32,7 @@ static void idt_init(void)
 {
     //安装全部异常处理程序
     trap_init();
+    signal_init(); //
     lidt((uint32_t)idt_table,IDTR_LIMIT);
 }
 

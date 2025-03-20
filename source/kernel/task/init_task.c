@@ -41,10 +41,10 @@ void create_sub_children()
     exit(0);
 }
 int a = 10;
-void init_task_main(void)
+void fork_test(void)
 {
     printf("Main process started: PID=%d\r\n", getpid());
-    
+
     pid_t child_pids[NUM_CHILD];
 
     for (int i = 0; i < NUM_CHILD; i++)
@@ -59,8 +59,8 @@ void init_task_main(void)
         {
             // 子进程
             a = 20;
-            
-            printf("Child created: PID=%d, Parent PID=%d, a=%d\r\n", getpid(), getppid(),a);
+
+            printf("Child created: PID=%d, Parent PID=%d, a=%d\r\n", getpid(), getppid(), a);
             create_sub_children();
         }
     }
@@ -80,6 +80,36 @@ void init_task_main(void)
     while (true)
     {
         sleep(3000);
-        printf("Main process finished: PID=%d, a=%d\r\n", getpid(),10);
+        printf("Main process finished: PID=%d, a=%d\r\n", getpid(), 10);
+    }
+}
+
+void sigreturn(void)
+{
+
+    asm volatile(
+        "int $0x40");
+}
+void signal_test(void *arg)
+{
+    while (true)
+    {
+        printf("Main process finished: PID=%d, a=%d\r\n", getpid(), 10);
+        sleep(1000);
+        sigreturn();
+    }
+}
+void init_task_main(void)
+{
+    int a = 0;
+    while (true)
+    {
+        printf("i am init task\r\n");
+        for (int i = 0; i < 0xFFFFF; i++)
+        {
+            a += 1;
+            a += 2;
+            a += 3;
+        }
     }
 }

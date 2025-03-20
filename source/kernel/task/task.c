@@ -176,6 +176,8 @@ static void task_record_pages(task_t *task)
     record_continue_pages(task, task->stack_base, task->attr.stack_size, PAGE_TYPE_ANON);
     // 记录任务的内核栈
     record_one_page(task,task->esp0-MEM_PAGE_SIZE,task->esp0-MEM_PAGE_SIZE,PAGE_TYPE_ANON);
+    //记录signal栈
+    record_one_page(task,task->signal_stack_base,USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE,PAGE_TYPE_ANON);
     // 记录堆
     record_continue_pages(task, task->heap_base, task->attr.heap_size, PAGE_TYPE_ANON);
 }
@@ -188,6 +190,8 @@ static void task_collect_pages(task_t* task){
     remove_pages(task,task->stack_base,task->attr.stack_size);
     // 回收任务的内核栈
     remove_one_page(task,task->esp0-MEM_PAGE_SIZE);
+    //回收signal栈
+    remove_one_page(task,USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE);
     // 回收堆
     remove_pages(task, task->heap_base, task->attr.heap_size);
     //释放所有二级页表空间
@@ -233,7 +237,12 @@ void jmp_to_usr_mode(void)
     //(内核栈空间就是中断或者系统调用压入一些上下文，需要的空间不多，就只分配一页)
     ph_addr_t stack_kbase = mm_bitmap_alloc_pages(1);
     task->esp0 = stack_kbase + MEM_PAGE_SIZE;
-
+    
+    //用户进程分配信号处理栈空间
+    ph_addr_t signal_stack_base = mm_bitmap_alloc_pages(1);
+    vm_addr_t signal_stack_vbase = USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE;
+    ret = pdt_set_entry(task->page_table, signal_stack_vbase, signal_stack_base, MEM_PAGE_SIZE, PDE_U | PDE_W | PDE_P);
+    task->signal_stack_base = signal_stack_base;
     // 给用户进程重新分配堆空间
     vm_addr_t head_ubase = USR_HEAP_BASE;
     ph_addr_t head_kbase = task->heap_base;
@@ -253,6 +262,7 @@ void jmp_to_usr_mode(void)
 
     //记录所有page_t为匿名页
     task_record_pages(task);
+    task->usr_flag = true;
     irq_leave_protection(state);
 
     // 模拟中断返回

@@ -6,6 +6,7 @@
 #include "tools/id.h"
 #include "mem/pdt.h"
 #include "cpu.h"
+#include "irq/traps.h"
 #define TASK_LIMIT_CNT  512
 #define TASK_PRIORITY_DEFAULT   1
 #define TASK_PID_START 0
@@ -48,6 +49,7 @@ typedef struct _task_t
         TASK_STATE_WAITING,
         TASK_STATE_ZOMBIE,
     } state;
+    exception_frame_t frame; //用于恢复signal的上下文
     list_t* list;//任务当前所在队列
     list_t child_list;//存放所有子进程
     int err_num; //错误号，每个线程独有
@@ -62,6 +64,7 @@ typedef struct _task_t
     page_entry_t *page_table;
     addr_t heap_base; //堆的起始地址 没进入用户态，存放物理地址，进入用户态，存放虚拟地址
     addr_t stack_base;//栈的起始地址 没进入用户态，存放物理地址，进入用户态，存放虚拟地址
+    addr_t signal_stack_base;
     task_attr_t attr; //任务属性
 
     list_node_t node; //就绪队列，睡眠队列 等待队列
@@ -71,6 +74,7 @@ typedef struct _task_t
     uint32_t wake_time;//任务等待超时时间
 
     list_node_t pool_node; //用于快速分配释放task_t结构
+    bool usr_flag;
 }task_t;
 
 
@@ -109,4 +113,5 @@ int sys_getpid(void);
 int sys_getppid(void);
 int sys_wait(int *status);
 void sys_exit(int status);
+
 #endif

@@ -49,7 +49,10 @@
 			"bitmap.h": "c",
 			"buddy_system.h": "c",
 			"math.h": "c",
-			"kmalloc.h": "c"
+			"kmalloc.h": "c",
+			"signal.h": "c",
+			"irq.h": "c",
+			"traps.h": "c"
 		}
 	}
 }

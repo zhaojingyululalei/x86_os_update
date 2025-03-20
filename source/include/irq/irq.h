@@ -34,6 +34,7 @@
 #define IRQ8_RTC            0x28                //rtc中断
 #define IRQ12_MOUSE         0x2C                // 鼠标中断号
 #define IRQ14_HARDDISK_PRIMARY		0x2E		// 主总线上的ATA磁盘中断
+#define IRQ_SIGNAL          0x40               //用于信号机制
 typedef uint32_t irq_state_t;
 
 
