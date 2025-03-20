@@ -18,7 +18,7 @@ syscall_init:
     ret
 
 
-    # 用户态调用sysenter直接跳到这里来，并且esp直接指向0x2000
+    # 用户态调用sysenter直接跳到这里来，并且esp直接指向
 sysenter_handler:
     
     # eax --- &args   ecx  eip   edx esp
@@ -37,6 +37,8 @@ sysenter_handler:
 
     call syscall_resolve
 
+    
+    
     add $(2*4),%esp
 sys_handler_exit:
     # cli

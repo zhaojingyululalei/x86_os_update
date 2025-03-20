@@ -5,6 +5,7 @@
 #include "task/sche.h"
 #include "irq/irq.h"
 #include "fs/fs.h"
+#include "cpu_cfg.h"
 // 系统调用表
 static const syscall_handler_t sys_table[] = {
     [SYS_test] = (syscall_handler_t)sys_calc_add,
@@ -33,3 +34,4 @@ int syscall_resolve(syscall_args_t* args)
     return ret;
     
 }
+

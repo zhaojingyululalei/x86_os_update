@@ -11,9 +11,9 @@ static uint32_t sys_tick;
  */
 static void pit_init(void)
 {
-    //计数器计数到reload_count就发生一次中断
-    //每个时钟reload_count++
-    //实际就是计算10ms有多少时钟周期，1秒有1193182个时钟，算10ms有几个
+    // 计数器计数到reload_count就发生一次中断
+    // 每个时钟reload_count++
+    // 实际就是计算10ms有多少时钟周期，1秒有1193182个时钟，算10ms有几个
     uint32_t reload_count = PIT_OSC_FREQ * (OS_TICK_MS / 1000.0);
 
     outb(PIT_COMMAND_MODE_PORT, PIT_CHANNLE0 | PIT_LOAD_LOHI | PIT_MODE3);
@@ -23,38 +23,29 @@ static void pit_init(void)
 /**
  * @brief 时钟中断服务程序
  */
-extern void signal_test(void*);
-static jmp_to_usr(exception_frame_t *frame){
-    //保存异常栈帧于task结构，以后恢复
-    task_t* cur = cur_task();
-    memcpy(&cur->frame,frame,sizeof(exception_frame_t));
-    
+extern void signal_test(void *);
+void jmp_to_usr(exception_frame_t *frame)
+{
+    // 保存异常栈帧于task结构，以后恢复
+    task_t *cur = cur_task();
+    memcpy(&cur->frame, frame, sizeof(exception_frame_t));
+
     tss_t *tss = &task_manager.tss;
     tss->ss = SELECTOR_USR_DATA_SEG;
-    //找到用户栈栈顶
-    if(frame->cs == SELECTOR_USR_CODE_SEG){
-        tss->esp = frame->esp3-4;//取个参数
-    }else if(frame->cs == SELECTOR_KERNEL_CODE_SEG){
-        sysenter_frame_t* syscall_frame = cur->esp0 - sizeof(sysenter_frame_t);
-        if(syscall_frame->ecx>=USR_SIGNAL_STACK_TOP && syscall_frame->ecx <=USR_STACK_TOP){
-            tss->esp = syscall_frame->ecx -4;
-        }
-        else{
-            return;
-        }
-        
-    }
-    
+    // 找到用户栈栈顶
+    tss->esp = frame->esp3 - 4; // 取个参数
     tss->eflags = (0 << 12 | 0b10 | 1 << 9);
     tss->cs = SELECTOR_USR_CODE_SEG;
     tss->eip = signal_test;
-
-    
 
     // 模拟中断返回
     asm volatile(
         // 模拟中断返回，切换入第1个可运行应用进程
         // 不过这里并不直接进入到进程的入口，而是先设置好段寄存器，再跳过去
+        "mov %[ss],%%ds\n\t"
+        "mov %[ss],%%es\n\t"
+        "mov %[ss],%%fs\n\t"
+        "mov %[ss],%%gs\n\t"
         "push %[ss]\n\t"     // SS
         "push %[esp]\n\t"    // ESP
         "push %[eflags]\n\t" // EFLAGS
@@ -64,35 +55,34 @@ static jmp_to_usr(exception_frame_t *frame){
         [esp] "r"(tss->esp), [eflags] "r"(tss->eflags),
         [cs] "r"(tss->cs), [eip] "r"(tss->eip));
 }
-void do_handler_timer (exception_frame_t *frame) {
-    sys_tick+=10;
-    
-    int a;
+void do_handler_timer(exception_frame_t *frame)
+{
+    sys_tick += 10;
+
     // 发送EOI
     pic_send_eoi(IRQ0_TIMER);
-    task_t* task = cur_task();
-    if(task->pid == 1){
-        a = 0;
-    }
-    //假设这里有信号，直接跳转到用户态执行
-    if(task->usr_flag )
+    task_t *cur = cur_task();
+
+    // 假设这里有信号，直接跳转到用户态执行
+    if (cur->usr_flag && frame->cs == SELECTOR_USR_CODE_SEG)
         jmp_to_usr(frame);
-   
-    clock_sleep_check(); //睡醒的任务加入就绪队列
-    clock_gwait_check(); //等待超时的任务加入就绪队列
-    task_t* cur = cur_task();
-    if(!cur){
+
+    clock_sleep_check(); // 睡醒的任务加入就绪队列
+    clock_gwait_check(); // 等待超时的任务加入就绪队列
+    if (!cur)
+    {
         dbg_error("cur task is NULL\r\n");
     }
-    if(!is_stack_magic(cur)){
+    if (!is_stack_magic(cur))
+    {
         dbg_error("stack magic err,maybe overflow\r\n");
         return;
     }
-    if(! --cur->ticks){
+    if (!--cur->ticks)
+    {
         cur->ticks = cur->priority;
         schedule();
     }
-   
 }
 /**
  * @brief 时钟初始化
