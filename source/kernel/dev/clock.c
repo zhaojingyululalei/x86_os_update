@@ -31,7 +31,20 @@ static jmp_to_usr(exception_frame_t *frame){
     
     tss_t *tss = &task_manager.tss;
     tss->ss = SELECTOR_USR_DATA_SEG;
-    tss->esp = USR_SIGNAL_STACK_TOP-4;//取个参数
+    //找到用户栈栈顶
+    if(frame->cs == SELECTOR_USR_CODE_SEG){
+        tss->esp = frame->esp3-4;//取个参数
+    }else if(frame->cs == SELECTOR_KERNEL_CODE_SEG){
+        sysenter_frame_t* syscall_frame = cur->esp0 - sizeof(sysenter_frame_t);
+        if(syscall_frame->ecx>=USR_SIGNAL_STACK_TOP && syscall_frame->ecx <=USR_STACK_TOP){
+            tss->esp = syscall_frame->ecx -4;
+        }
+        else{
+            return;
+        }
+        
+    }
+    
     tss->eflags = (0 << 12 | 0b10 | 1 << 9);
     tss->cs = SELECTOR_USR_CODE_SEG;
     tss->eip = signal_test;
@@ -62,7 +75,7 @@ void do_handler_timer (exception_frame_t *frame) {
         a = 0;
     }
     //假设这里有信号，直接跳转到用户态执行
-    if(task->usr_flag && frame->cs == SELECTOR_USR_CODE_SEG)
+    if(task->usr_flag )
         jmp_to_usr(frame);
    
     clock_sleep_check(); //睡醒的任务加入就绪队列

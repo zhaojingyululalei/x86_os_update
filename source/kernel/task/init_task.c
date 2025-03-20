@@ -105,11 +105,12 @@ void init_task_main(void)
     while (true)
     {
         printf("i am init task\r\n");
-        for (int i = 0; i < 0xFFFFF; i++)
-        {
-            a += 1;
-            a += 2;
-            a += 3;
-        }
+        sleep(2000);
+        // for (int i = 0; i < 0xFFFFF; i++)
+        // {
+        //     a += 1;
+        //     a += 2;
+        //     a += 3;
+        // }
     }
 }

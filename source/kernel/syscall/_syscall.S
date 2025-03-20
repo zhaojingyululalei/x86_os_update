@@ -39,6 +39,7 @@ sysenter_handler:
 
     add $(2*4),%esp
 sys_handler_exit:
+    # cli
     pop %edx
     pop %ecx
     pop %esi # 用户栈段
@@ -49,4 +50,5 @@ sys_handler_exit:
     mov %edi,%es
     mov %edi,%fs
     mov %edi,%gs
+    # sti
     sysexit
