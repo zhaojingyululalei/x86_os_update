@@ -1,5 +1,6 @@
 #include "syscall/applib.h"
 #include "syscall/syscall.h"
+#include "task/signal.h"
 extern void *sys_call(void *);
 
 int write(int fd,const char* buf,size_t len){
@@ -66,6 +67,50 @@ int geterrno(void){
     syscall_args_t arg;
     arg.id = SYS_geterrno;
     ret = sys_call(&arg);
+    return ret;
+}
+int signal(int signum,void (*signal_handler)(int)){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_signal;
+    arg.arg0 =signum;
+    arg.arg1 = signal_handler;
+    ret =sys_call(&arg);
+    return ret;
+}
+int sigpromask(int how,const sigset_t *set, sigset_t *old){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_sigpromask;
+    arg.arg0 =how;
+    arg.arg1 = set;
+    arg.arg2 = old;
+    ret =sys_call(&arg);
+    return ret;
+}
+int raise(int signum){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_raise;
+    arg.arg0 =signum;
+    ret =sys_call(&arg);
+    return ret;
+}
+int kill(int pid, int signum){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_kill;
+    arg.arg0 =pid;
+    arg.arg1 = signum;
+    ret =sys_call(&arg);
+    return ret;
+}
+int sigpending(sigset_t* set){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_sigpending;
+    arg.arg0 =set;
+    ret =sys_call(&arg);
     return ret;
 }
 void printf(char *fmt, ...)

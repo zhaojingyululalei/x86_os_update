@@ -23,38 +23,7 @@ static void pit_init(void)
 /**
  * @brief 时钟中断服务程序
  */
-extern void signal_test(void *);
-void jmp_to_usr(exception_frame_t *frame)
-{
-    // 保存异常栈帧于task结构，以后恢复
-    task_t *cur = cur_task();
-    memcpy(&cur->frame, frame, sizeof(exception_frame_t));
-
-    tss_t *tss = &task_manager.tss;
-    tss->ss = SELECTOR_USR_DATA_SEG;
-    // 找到用户栈栈顶
-    tss->esp = frame->esp3 - 4; // 取个参数
-    tss->eflags = (0 << 12 | 0b10 | 1 << 9);
-    tss->cs = SELECTOR_USR_CODE_SEG;
-    tss->eip = signal_test;
-
-    // 模拟中断返回
-    asm volatile(
-        // 模拟中断返回，切换入第1个可运行应用进程
-        // 不过这里并不直接进入到进程的入口，而是先设置好段寄存器，再跳过去
-        "mov %[ss],%%ds\n\t"
-        "mov %[ss],%%es\n\t"
-        "mov %[ss],%%fs\n\t"
-        "mov %[ss],%%gs\n\t"
-        "push %[ss]\n\t"     // SS
-        "push %[esp]\n\t"    // ESP
-        "push %[eflags]\n\t" // EFLAGS
-        "push %[cs]\n\t"     // CS
-        "push %[eip]\n\t"    // ip
-        "iret\n\t" ::[ss] "r"(tss->ss),
-        [esp] "r"(tss->esp), [eflags] "r"(tss->eflags),
-        [cs] "r"(tss->cs), [eip] "r"(tss->eip));
-}
+extern void check_and_handle_signal(task_t* cur,exception_frame_t *frame);
 void do_handler_timer(exception_frame_t *frame)
 {
     sys_tick += 10;
@@ -63,12 +32,11 @@ void do_handler_timer(exception_frame_t *frame)
     pic_send_eoi(IRQ0_TIMER);
     task_t *cur = cur_task();
 
-    // 假设这里有信号，直接跳转到用户态执行
-    if (cur->usr_flag && frame->cs == SELECTOR_USR_CODE_SEG)
-        jmp_to_usr(frame);
+    
 
     clock_sleep_check(); // 睡醒的任务加入就绪队列
     clock_gwait_check(); // 等待超时的任务加入就绪队列
+    check_and_handle_signal(cur,frame);
     if (!cur)
     {
         dbg_error("cur task is NULL\r\n");

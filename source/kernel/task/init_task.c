@@ -2,7 +2,7 @@
 
 #include "types.h"
 #include "syscall/applib.h"
-
+#include "task/signal.h"
 #define NUM_CHILD 3 // 主进程创建 3 个子进程
 #define SUB_CHILD 2 // 每个子进程再创建 2 个孙子进程
 
@@ -84,20 +84,12 @@ void fork_test(void)
     }
 }
 
-void sigreturn(void)
+void signal_test(int signum)
 {
 
-    asm volatile(
-        "int $0x40");
-}
-void signal_test(void *arg)
-{
-    while (true)
-    {
-        printf("Main process finished: PID=%d, a=%d\r\n", getpid(), 10);
-        sleep(1000);
-        sigreturn();
-    }
+    printf("Main process finished: PID=%d, signum=%d\r\n", getpid(), signum);
+    sleep(1000);
+    sigreturn();
 }
 void init_task_main(void)
 {
@@ -105,12 +97,14 @@ void init_task_main(void)
     while (true)
     {
         printf("i am init task\r\n");
-        
+        signal(SIGUSR1, signal_test);
+        raise(SIGUSR1);
         for (int i = 0; i < 0xF; i++)
         {
             a += 1;
             a += 2;
             a += 3;
         }
+        //sleep(2000);
     }
 }

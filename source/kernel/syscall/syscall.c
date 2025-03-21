@@ -6,6 +6,7 @@
 #include "irq/irq.h"
 #include "fs/fs.h"
 #include "cpu_cfg.h"
+#include "task/signal.h"
 // 系统调用表
 static const syscall_handler_t sys_table[] = {
     [SYS_test] = (syscall_handler_t)sys_calc_add,
@@ -18,6 +19,11 @@ static const syscall_handler_t sys_table[] = {
     [SYS_wait] = (syscall_handler_t)sys_wait,
     [SYS_exit] = (syscall_handler_t)sys_exit,
     [SYS_geterrno]=(syscall_handler_t)task_get_errno,
+    [SYS_signal] = (syscall_handler_t)sys_signal,
+    [SYS_sigpromask] = (syscall_handler_t)sys_sigpromask,
+    [SYS_raise] = (syscall_handler_t)sys_raise,
+    [SYS_kill] = (syscall_handler_t)sys_kill,
+    [SYS_sigpending] = (syscall_handler_t)sys_sigpending,
 };
 
 int syscall_resolve(syscall_args_t* args)

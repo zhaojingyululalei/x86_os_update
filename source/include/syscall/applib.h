@@ -4,6 +4,7 @@
 #include "types.h"
 #include "time/time.h"
 #include "stdarg.h"
+#include "task/signal.h"
 typedef int pid_t;
 #define stdin   0
 #define stdout  1
@@ -85,6 +86,16 @@ int getppid(void);
 int wait(int* status);
 void exit(int status);
 int geterrno(void);
+int signal(int signum,void (*signal_handler)(int));
+int sigpromask(int how,const sigset_t *set, sigset_t *old);
+int raise(int signum);
+int kill(int pid, int signum);
+int sigpending(sigset_t* set);
+static void sigreturn(void)
+{
+    asm volatile(
+        "int $0x40");
+}
 #define errno (geterrno())
 // printf 相关
 void printf(char *fmt, ...);

@@ -7,6 +7,7 @@
 #include "mem/pdt.h"
 #include "cpu.h"
 #include "irq/traps.h"
+#include "signal.h"
 #define TASK_LIMIT_CNT  512
 #define TASK_PRIORITY_DEFAULT   1
 #define TASK_PID_START 0
@@ -67,6 +68,9 @@ typedef struct _task_t
     addr_t signal_stack_base;
     task_attr_t attr; //任务属性
 
+    signal_handler s_handler[SIGNAL_MAX_CNT];
+    sigset_t s_mask;
+    sigset_t s_pending;
     list_node_t node; //就绪队列，睡眠队列 等待队列
     list_node_t child_node;//子进程退出，放入父进程的子进程队列中记录
     list_node_t time_node; //全局超时等待队列
@@ -74,7 +78,7 @@ typedef struct _task_t
     uint32_t wake_time;//任务等待超时时间
 
     list_node_t pool_node; //用于快速分配释放task_t结构
-    bool usr_flag;
+    bool paused;
 }task_t;
 
 

@@ -28,5 +28,9 @@ typedef int (*syscall_handler_t)(uint32_t arg0, uint32_t arg1, uint32_t arg2, ui
 #define SYS_wait            7
 #define SYS_exit            8
 #define SYS_geterrno        9
-
+#define SYS_signal          10
+#define SYS_sigpromask      11
+#define SYS_raise           12
+#define SYS_kill            13
+#define SYS_sigpending      14
 #endif
