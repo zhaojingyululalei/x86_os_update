@@ -93,49 +93,43 @@ void signal_test(int signum)
 }
 void init_task_main(void)
 {
-    pid_t pid = fork();
-    if(pid < 0){
-        printf("fork error\r\n");
-    }else if(pid ==0){
+    // pid_t pid = fork();
+    // if(pid < 0){
+    //     printf("fork error\r\n");
+    // }else if(pid ==0){
         
-        signal(SIGUSR1, signal_test);//注册
-        pause();//暂停，直到收到sigusr1为止
-        //printf("child wake up\r\n");
+    //     signal(SIGUSR1, signal_test);//注册
+    //     pause();//暂停，直到收到sigusr1为止
+    //     //printf("child wake up\r\n");
         
-        //sleep(2000);
-        
-        printf("i am child,pid=%d\r\n",getpid());
-        exit(0);
-    }else{
-        //父进程
-        printf("i am father\r\n");
-        sleep(2000);
-        printf("father send SIGUSR1\r\n");
-        kill(pid,SIGUSR1);
-    }
-    // 主进程回收所有子进程
-    for (;;)
-    {
-        int status;
-        pid_t cid = wait(&status);
-        if (cid > 0)
-        {
-            printf("Child reclaimed: PID=%d, Status=%d, Main PID=%d\r\n",
-                   cid, WEXITSTATUS(status), getpid());
-        }
-    }
-    // int a = 0;
-    // while (true)
-    // {
-    //     printf("i am init task\r\n");
-    //     signal(SIGUSR1, signal_test);
-    //     raise(SIGUSR1);
-    //     for (int i = 0; i < 0xF; i++)
-    //     {
-    //         a += 1;
-    //         a += 2;
-    //         a += 3;
-    //     }
     //     //sleep(2000);
+        
+    //     printf("i am child,pid=%d\r\n",getpid());
+    //     exit(0);
+    // }else{
+    //     //父进程
+    //     printf("i am father\r\n");
+    //     sleep(2000);
+    //     printf("father send SIGUSR1\r\n");
+    //     kill(pid,SIGUSR1);
     // }
+    // // 主进程回收所有子进程
+    // for (;;)
+    // {
+    //     int status;
+    //     pid_t cid = wait(&status);
+    //     if (cid > 0)
+    //     {
+    //         printf("Child reclaimed: PID=%d, Status=%d, Main PID=%d\r\n",
+    //                cid, WEXITSTATUS(status), getpid());
+    //     }
+    // }
+    int a = 0;
+    while (true)
+    {
+        printf("i am init task\r\n");
+        signal(SIGUSR1, signal_test);
+        raise(SIGUSR1);
+        sleep(2000);
+    }
 }

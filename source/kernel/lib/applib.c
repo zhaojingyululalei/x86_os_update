@@ -18,8 +18,9 @@ void sleep(uint32_t ms)
 {
     syscall_args_t arg;
     arg.id = SYS_sleep;
-    arg.arg0 = ms;
+    arg.arg0 = ms ;
     sys_call(&arg);
+    wait_one_tick();
     return;
 }
 
