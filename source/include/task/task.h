@@ -7,7 +7,8 @@
 #include "mem/pdt.h"
 #include "cpu.h"
 #include "irq/traps.h"
-#include "signal.h"
+#include "signal.h" 
+#include "mem/buddy_system.h"
 #define TASK_LIMIT_CNT  512
 #define TASK_PRIORITY_DEFAULT   1
 #define TASK_PID_START 0
@@ -67,7 +68,7 @@ typedef struct _task_t
     addr_t stack_base;//栈的起始地址 没进入用户态，存放物理地址，进入用户态，存放虚拟地址
     addr_t signal_stack_base;
     task_attr_t attr; //任务属性
-
+    buddy_mmpool_dyn_t m_pool;
     signal_handler s_handler[SIGNAL_MAX_CNT];
     sigset_t s_mask;
     sigset_t s_pending;
@@ -117,5 +118,6 @@ int sys_getpid(void);
 int sys_getppid(void);
 int sys_wait(int *status);
 void sys_exit(int status);
+
 
 #endif

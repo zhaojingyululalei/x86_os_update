@@ -34,4 +34,6 @@ typedef int (*syscall_handler_t)(uint32_t arg0, uint32_t arg1, uint32_t arg2, ui
 #define SYS_kill            13
 #define SYS_sigpending      14
 #define SYS_pause           15
+#define SYS_malloc          16
+#define SYS_free            17
 #endif

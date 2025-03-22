@@ -92,6 +92,8 @@ int raise(int signum);
 int kill(int pid, int signum);
 int sigpending(sigset_t* set);
 int pause(void);
+void* malloc(size_t size);
+void free(void* ptr);
 static inline void sigreturn(void)
 {
     asm volatile(

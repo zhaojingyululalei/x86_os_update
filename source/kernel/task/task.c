@@ -262,6 +262,9 @@ void jmp_to_usr_mode(void)
 
     //记录所有page_t为匿名页
     task_record_pages(task);
+
+    //malloc
+    buddy_mmpool_dyn_init(&task->m_pool,USR_HEAP_BASE,task->attr.heap_size);
     irq_leave_protection(state);
 
     // 模拟中断返回
@@ -609,6 +612,10 @@ int sys_fork(void)
 
     //记录子进程页信息
     task_record_pages(child);
+    //malloc,二者堆空间的分配状况一模一样。例如父进程已经分配了0x90000000~0x90004000 那么子进程也分配了0x90000000~0x90004000
+    
+    memcpy(&child->m_pool,&parent->m_pool,sizeof(buddy_mmpool_dyn_t));
+    rb_tree_copy(&parent->m_pool.sys.tree,&child->m_pool.sys.tree);
     irq_leave_protection(state);
     sys_yield();
     return child->pid;

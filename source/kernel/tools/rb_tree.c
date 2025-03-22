@@ -1,12 +1,13 @@
 #include "tools/rb_tree.h"
 #include "string.h"
-static  rb_node_t nil;
 // 初始化红黑树
-void rb_tree_init(rb_tree_t *tree,int (*compare)(const void*, const void*) , rb_node_t* (*get_node)(const void*), void* (*get_parent)(rb_node_t*)) {
+void rb_tree_init(rb_tree_t *tree,int (*compare)(const void*, const void*) ,\
+ rb_node_t* (*get_node)(const void*), void* (*get_parent)(rb_node_t*),\
+ void* (*copy_node_data)(void* data)) {
     if (!tree) return;
 
     // 创建哨兵节点
-    tree->nil = &nil;
+    tree->nil = &tree->empty;
     tree->nil->color = BLACK; // 哨兵节点为黑色
     tree->nil->left = tree->nil->right = tree->nil->parent = tree->nil; // 指向自己
 
@@ -16,6 +17,7 @@ void rb_tree_init(rb_tree_t *tree,int (*compare)(const void*, const void*) , rb_
     tree->compare = (int (*)(const void*, const void*))compare;
     tree->get_node = (rb_node_t* (*)(const void*))get_node;
     tree->get_parent = (void* (*)(rb_node_t*))get_parent;
+    tree->copy_node_data = copy_node_data;
 }
 
 // 左旋
@@ -529,3 +531,65 @@ rb_node_t *rb_tree_find_max(rb_tree_t *tree) {
 
     return rb_tree_maximum(tree, tree->root);
 }
+
+
+
+
+
+// 使用回调函数复制节点数据（如果需要深拷贝节点数据）
+static void* rb_tree_copy_data(rb_tree_t *tree, void *data) {
+    if (tree->copy_node_data) {
+        return tree->copy_node_data(data); // 使用回调函数复制数据
+    }
+    
+    return data;  // 默认返回原始数据
+}
+// 递归拷贝节点
+static rb_node_t* rb_tree_copy_node(rb_tree_t *tree, rb_node_t *node,rb_node_t* newtree_nil) {
+    if (node == tree->nil) return newtree_nil;  // 如果是nil节点，返回新树的nil
+
+    // 使用回调函数复制节点数据
+    void *copy_data = rb_tree_copy_data(tree, tree->get_parent(node));  // 深拷贝数据
+    if (!copy_data) {
+        return newtree_nil;
+    }
+
+    // 创建新的节点
+    rb_node_t *new_node = tree->get_node(copy_data);  // 创建新节点
+    new_node->color = node->color;
+    new_node->count = node->count;
+    new_node->left = rb_tree_copy_node(tree, node->left,newtree_nil);  // 递归复制左子树
+    new_node->right = rb_tree_copy_node(tree, node->right,newtree_nil);  // 递归复制右子树
+
+    // 设置父节点指针
+    if (new_node->left != tree->nil) {
+        new_node->left->parent = new_node;
+    }
+    if (new_node->right != tree->nil) {
+        new_node->right->parent = new_node;
+    }
+
+    return new_node;
+}
+// 树的深拷贝函数
+ int rb_tree_copy(rb_tree_t *tree, rb_tree_t *empty) {
+    if (!tree || !empty) return -1;  // 确保树不为空
+
+    // 创建新树
+    rb_tree_t *new_tree = empty;
+    if (!new_tree) return -1;  // 确保内存分配成功
+
+    // 初始化新树
+    rb_tree_init(new_tree, tree->compare, tree->get_node, tree->get_parent,tree->copy_node_data);
+
+
+    // 创建根节点副本
+    new_tree->root = rb_tree_copy_node(tree, tree->root,new_tree->nil);
+    new_tree->count = tree->count;
+
+    return 0;
+}
+
+
+
+

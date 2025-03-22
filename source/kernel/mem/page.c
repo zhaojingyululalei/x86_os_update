@@ -53,7 +53,7 @@ void page_manager_init(void)
 
     dbg_info("page_T free list count %d\r\n", list_count(&page_free_list));
     // 初始化page_tree存放所有page页
-    rb_tree_init(&page_tree, page_compare, page_get_node, node_get_page);
+    rb_tree_init(&page_tree, page_compare, page_get_node, node_get_page,NULL);
     // kmalloc弄好后，在这里把kmalloc管理的区域记为内核页
     
     ph_addr_t ph_start = get_km_allocator_start();

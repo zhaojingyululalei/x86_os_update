@@ -94,3 +94,4 @@
 
     vma
     
+int rb_tree_copy(rb_tree_t *dest_tree，rb_tree_t *src_tree)

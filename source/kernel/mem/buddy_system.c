@@ -221,6 +221,47 @@ static bucket_t* dynamic_get_buddy(buddy_system_t* buddy,bucket_t* bucket){
     }
     return NULL; //兄弟节点还在使用，
 }
+
+// 拷贝桶
+static void* copy_bucket_data(void* data) {
+    if (!data) return NULL;
+
+    bucket_t *original = (bucket_t*)data;
+    bucket_t *copy = bucket_alloc();
+    if (!copy) return NULL;
+
+    // 拷贝数据
+    copy->addr = original->addr;
+    copy->capacity = original->capacity;
+    copy->state = original->state;
+    
+
+    return copy;
+}
+//拷贝zone
+static void* copy_zone_data(void* data) {
+    if (!data) return NULL;
+
+    buddy_zone_t *original = (buddy_zone_t*)data;
+    buddy_zone_t *copy = zone_alloc();
+    if (!copy) return NULL;
+
+    // 拷贝数据
+    copy->capacity = original->capacity;
+    list_node_t* cur = original->buckets_list.first;
+    //拷贝bucket链表
+    while (cur)
+    {
+        bucket_t* src = list_node_parent(cur,bucket_t,lnode);
+        bucket_t* dest = copy_bucket_data(src);
+        list_insert_last(&copy->buckets_list,&dest->lnode);
+        cur = cur->next;
+    }
+    
+   
+
+    return copy;
+}
 static void buddy_system_init(buddy_system_t *buddy, addr_t start, size_t size)
 {
     if (!buddy)
@@ -231,7 +272,7 @@ static void buddy_system_init(buddy_system_t *buddy, addr_t start, size_t size)
     buddy->size = size;
 
     // 初始化红黑树
-    rb_tree_init(&buddy->tree, bucket_compare, bucket_get_node, node_get_bucket);
+    rb_tree_init(&buddy->tree, bucket_compare, bucket_get_node, node_get_bucket,copy_bucket_data);
 
     // 创建初始桶
     bucket_t *initial_bucket = bucket_alloc();
@@ -341,7 +382,7 @@ static void buddy_dynamic_system_init(buddy_system_t *buddy, addr_t start, size_
     buddy->size = size;
 
     // 初始化红黑树
-    rb_tree_init(&buddy->tree, zone_compare, zone_get_node, node_get_zone);
+    rb_tree_init(&buddy->tree, zone_compare, zone_get_node, node_get_zone,copy_zone_data);
 
     //创建初始zone
     buddy_zone_t* initial_zone  = zone_alloc();

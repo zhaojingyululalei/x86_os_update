@@ -7,6 +7,7 @@
 #include "fs/fs.h"
 #include "cpu_cfg.h"
 #include "task/signal.h"
+#include "mem/malloc.h"
 // 系统调用表
 static const syscall_handler_t sys_table[] = {
     [SYS_test] = (syscall_handler_t)sys_calc_add,
@@ -25,6 +26,8 @@ static const syscall_handler_t sys_table[] = {
     [SYS_kill] = (syscall_handler_t)sys_kill,
     [SYS_sigpending] = (syscall_handler_t)sys_sigpending,
     [SYS_pause] = (syscall_handler_t)sys_pause,
+    [SYS_malloc] = (syscall_handler_t)sys_malloc,
+    [SYS_free] = (syscall_handler_t)sys_free
 };
 
 int syscall_resolve(syscall_args_t* args)

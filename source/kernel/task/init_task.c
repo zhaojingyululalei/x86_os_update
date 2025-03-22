@@ -91,8 +91,7 @@ void signal_test(int signum)
     
     sigreturn();
 }
-void init_task_main(void)
-{
+void signal_fork_test(void){
     // pid_t pid = fork();
     // if(pid < 0){
     //     printf("fork error\r\n");
@@ -132,4 +131,53 @@ void init_task_main(void)
         raise(SIGUSR1);
         sleep(2000);
     }
+}
+void malloc_test(void){
+    //父进程
+        int* ret = malloc(4096);
+        // while (1)
+        // {
+            printf("father ret = 0x%x\r\n",ret);
+            sleep(1000);
+        // }
+    pid_t pid = fork();
+    if(pid < 0){
+        printf("fork error\r\n");
+    }else if(pid ==0){
+        
+        int* ret = malloc(4096);
+        while (true)
+        {
+
+            printf("child ret = 0x%x\r\n",ret);
+            sleep(1000);
+        }
+        
+        exit(0);
+    }else{
+        
+        
+    }
+    // 主进程回收所有子进程
+    for (;;)
+    {
+        int status;
+        pid_t cid = wait(&status);
+        if (cid > 0)
+        {
+            printf("Child reclaimed: PID=%d, Status=%d, Main PID=%d\r\n",
+                   cid, WEXITSTATUS(status), getpid());
+        }
+    }
+    // int* ret = malloc(4096);
+    // printf("father ret = 0x%x\r\n",ret);
+    // while (true)
+    // {
+    //     sleep(2000);
+    // }
+    
+}
+void init_task_main(void)
+{
+    malloc_test();
 }

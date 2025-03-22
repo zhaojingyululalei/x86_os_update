@@ -1,6 +1,7 @@
 #include "syscall/applib.h"
 #include "syscall/syscall.h"
 #include "task/signal.h"
+#include "mem/malloc.h"
 extern void *sys_call(void *);
 
 int write(int fd, const char *buf, size_t len)
@@ -137,7 +138,21 @@ int pause(void)
     wait_one_tick();
     return ret;
 }
-
+void* malloc(size_t size){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_malloc;
+    arg.arg0 = size;
+    ret = sys_call(&arg);
+    return ret;
+}
+void free(void* ptr){
+  
+    syscall_args_t arg;
+    arg.id = SYS_free;
+    arg.arg0 = ptr;
+    sys_call(&arg);
+}
 void printf(char *fmt, ...)
 {
 
