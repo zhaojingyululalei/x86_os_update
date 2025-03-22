@@ -91,11 +91,13 @@ int sigpromask(int how,const sigset_t *set, sigset_t *old);
 int raise(int signum);
 int kill(int pid, int signum);
 int sigpending(sigset_t* set);
-static void sigreturn(void)
+int pause(void);
+static inline void sigreturn(void)
 {
     asm volatile(
         "int $0x40");
 }
+
 #define errno (geterrno())
 // printf 相关
 void printf(char *fmt, ...);
@@ -126,4 +128,5 @@ int tmp_vsnprintf(char *buffer, int buf_len, const char *fmt, va_list args);
 
 
 
+void wait_one_tick(void);
 #endif

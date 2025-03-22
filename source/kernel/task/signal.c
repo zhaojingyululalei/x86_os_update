@@ -74,8 +74,10 @@ int sys_sigpromask(int how, const sigset_t *set, sigset_t *old)
 /**
  * @brief 向当前进程发送信号
  */
-int sys_raise(int signum) {
-    if (signum <= 0 || signum >= SIGNAL_MAX_CNT) return -1;
+int sys_raise(int signum)
+{
+    if (signum <= 0 || signum >= SIGNAL_MAX_CNT)
+        return -1;
 
     task_t *cur = cur_task();
     cur->s_pending.bitmap |= (1 << signum);
@@ -84,12 +86,14 @@ int sys_raise(int signum) {
 /**
  * @brief 向其他进程发送信号
  */
-int sys_kill(int pid, int signum) {
-    if (signum <= 0 || signum >= SIGNAL_MAX_CNT) return -1;
+int sys_kill(int pid, int signum)
+{
+    if (signum <= 0 || signum >= SIGNAL_MAX_CNT)
+        return -1;
 
-    
     task_t *target = task_manager.tasks[pid];
-    if (!target) return -1;
+    if (!target)
+        return -1;
 
     target->s_pending.bitmap |= (1 << signum);
     return 0;
@@ -99,8 +103,10 @@ int sys_kill(int pid, int signum) {
  * @brief 获取未决信号集
  */
 
-int sys_sigpending(sigset_t *set) {
-    if (!set) return -1;
+int sys_sigpending(sigset_t *set)
+{
+    if (!set)
+        return -1;
 
     task_t *cur = cur_task();
     set->bitmap = cur->s_pending.bitmap;
@@ -110,21 +116,23 @@ int sys_sigpending(sigset_t *set) {
 /**
  * @brief 暂停程序，直到收到一个信号，并且处理完
  */
-int sys_pause(void) {
+int sys_pause(void)
+{
     task_t *cur = cur_task();
-    cur->paused = true;  // 设置进程为暂停状态
+    cur->paused = true; // 设置进程为暂停状态
 
     // 进入等待状态，直到有信号被处理
-    while (cur->paused) {
-        
+    while (cur->paused)
+    {
+
         sys_yield();
     }
-    return 0;  // 当信号处理完毕，返回
+    return 0; // 当信号处理完毕，返回
 }
 
-
-static void jmp_to_usr(exception_frame_t *frame,signal_handler handler,int signum)
+static void jmp_to_usr(exception_frame_t *frame, signal_handler handler, int signum)
 {
+
     // 保存异常栈帧于task结构，以后恢复
     task_t *cur = cur_task();
     memcpy(&cur->frame, frame, sizeof(exception_frame_t));
@@ -132,8 +140,8 @@ static void jmp_to_usr(exception_frame_t *frame,signal_handler handler,int signu
     tss_t *tss = &task_manager.tss;
     tss->ss = SELECTOR_USR_DATA_SEG;
     // 找到用户栈栈顶
-    tss->esp = frame->esp3 - 8; // 留个参数和返回值的空隙
-    int* arg = (int*)(tss->esp+4); //设置个参数
+    tss->esp = frame->esp3 - 8;       // 留个参数和返回值的空隙
+    int *arg = (int *)(tss->esp + 4); // 设置个参数
     *arg = signum;
     tss->eflags = (0 << 12 | 0b10 | 1 << 9);
     tss->cs = SELECTOR_USR_CODE_SEG;
@@ -160,25 +168,33 @@ static void jmp_to_usr(exception_frame_t *frame,signal_handler handler,int signu
  * @brief 时钟中断处检查是否有可以执行的信号并执行处理函数
  */
 
-void check_and_handle_signal(task_t* cur,exception_frame_t *frame) {
-    if(frame->cs != SELECTOR_USR_CODE_SEG){
-        return;
-    }
+void check_and_handle_signal(task_t *cur, exception_frame_t *frame)
+{
+
     task_t *task = cur;
-    for (int i = 1; i < SIGNAL_MAX_CNT; ++i) {
+    for (int i = 1; i < SIGNAL_MAX_CNT; ++i)
+    {
         uint32_t mask = (1 << i);
-        //如果pending位置1，并且还没有屏蔽
-        if ((task->s_pending.bitmap & mask) && !(task->s_mask.bitmap & mask)) {
-            // 清除 pending
-            task->s_pending.bitmap &= ~mask;
+        // 如果pending位置1，并且还没有屏蔽
+        if ((task->s_pending.bitmap & mask) && !(task->s_mask.bitmap & mask))
+        {
 
             signal_handler handler = task->s_handler[i];
-            if (handler) {
+            if (handler)
+            {
                 // 调用已有的 handle_signal()
                 cur->paused = false;
-                jmp_to_usr(frame,handler,i);
+                if (frame->cs != SELECTOR_USR_CODE_SEG)
+                {
+                    return;
+                }
+                // 清除 pending
+                task->s_pending.bitmap &= ~mask;
+                jmp_to_usr(frame, handler, i);
                 return;
-            } else {
+            }
+            else
+            {
                 // 默认处理：终止
                 sys_exit(-1); // 进程退出
             }

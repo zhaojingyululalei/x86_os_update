@@ -7,7 +7,7 @@
 
 syscall_init:
     movl $0x174,%ecx # IA32_SYSENTER_CS
-    movl $SELECTOR_KERNEL_CODE_SEG,%eax # 内核代码段
+    movl $SELECTOR_KERNEL_CODE_SEG,%eax # 内核代码段,栈段不用设置，直接从cs下一个gdt表项取
     xor %edx,%edx
     wrmsr # 写入MSR寄存器
 
@@ -41,7 +41,7 @@ sysenter_handler:
     
     add $(2*4),%esp
 sys_handler_exit:
-    # cli
+    cli
     pop %edx
     pop %ecx
     pop %esi # 用户栈段
@@ -52,5 +52,5 @@ sys_handler_exit:
     mov %edi,%es
     mov %edi,%fs
     mov %edi,%gs
-    # sti
+    sti
     sysexit

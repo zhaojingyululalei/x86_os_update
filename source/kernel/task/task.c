@@ -262,7 +262,6 @@ void jmp_to_usr_mode(void)
 
     //记录所有page_t为匿名页
     task_record_pages(task);
-    task->usr_flag = true;
     irq_leave_protection(state);
 
     // 模拟中断返回

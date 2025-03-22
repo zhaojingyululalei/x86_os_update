@@ -24,6 +24,7 @@ static const syscall_handler_t sys_table[] = {
     [SYS_raise] = (syscall_handler_t)sys_raise,
     [SYS_kill] = (syscall_handler_t)sys_kill,
     [SYS_sigpending] = (syscall_handler_t)sys_sigpending,
+    [SYS_pause] = (syscall_handler_t)sys_pause,
 };
 
 int syscall_resolve(syscall_args_t* args)
