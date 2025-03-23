@@ -32,6 +32,13 @@ void task_set_wait(task_t* task){
     task->list = &task_manager.wait_list;
     irq_leave_protection(state);
 }
+void task_set_stop(task_t* task){
+    irq_state_t state = irq_enter_protection();
+    task->state = TASK_STATE_WAITING;
+    list_insert_last(&task_manager.stop_list,&task->node);//加入等待队列
+    task->list = &task_manager.stop_list;
+    irq_leave_protection(state);
+}
 task_t *cur_task(void)
 {
     task_t* task;

@@ -24,6 +24,7 @@ typedef struct _task_manager_t{
     list_t ready_list;
     list_t sleep_list;
     list_t wait_list;//父进程等待回收子进程，暂时不能去就绪队列中运行
+    list_t stop_list;//收到stop信号，就来这里
     struct _task_t* init;
     struct _task_t *idle; //就绪队列没有任务了就让这个执行
     /**tss */
@@ -63,6 +64,7 @@ typedef struct _task_t
     uint32_t priority; //任务优先级，优先级高的会多分一些时间片
     int ticks; //每时间片-1
     int sleep_ticks;//睡眠时间片
+    uint32_t alarm_time; //闹钟时间
     page_entry_t *page_table;
     addr_t heap_base; //堆的起始地址 没进入用户态，存放物理地址，进入用户态，存放虚拟地址
     addr_t stack_base;//栈的起始地址 没进入用户态，存放物理地址，进入用户态，存放虚拟地址
@@ -80,6 +82,7 @@ typedef struct _task_t
 
     list_node_t pool_node; //用于快速分配释放task_t结构
     bool paused;
+    bool stop;
 }task_t;
 
 

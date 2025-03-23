@@ -4,6 +4,7 @@
 void task_set_ready(task_t* task);
 void task_set_sleep(task_t* task);
 void task_set_wait(task_t* task);
+void task_set_stop(task_t* task);
 task_t *cur_task(void);
 task_t* parent_task(void);
 task_t *next_task(void);

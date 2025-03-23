@@ -2,6 +2,8 @@
 #include "irq/irq.h"
 #include "string.h"
 #include "task/task.h"
+#include "time/time.h"
+#include "task/sche.h"
 extern void exception_handler_signal(void);
 void do_handler_signal(exception_frame_t *frame)
 {
@@ -32,7 +34,7 @@ int sys_signal(int signum, signal_handler handler)
     if (signum <= 0 || signum >= SIGNAL_MAX_CNT)
         return -1;
 
-    if (signum == SIGKILL || signum == SIGSTOP)
+    if (signum == SIGKILL || signum == SIGSTOP || signum == SIGCONT)
     {
         return -1; // 不允许覆盖
     }
@@ -90,7 +92,9 @@ int sys_kill(int pid, int signum)
 {
     if (signum <= 0 || signum >= SIGNAL_MAX_CNT)
         return -1;
-
+    if(signum == SIGCONT){
+        task_manager.tasks[pid]->stop = false;
+    }
     task_t *target = task_manager.tasks[pid];
     if (!target)
         return -1;
@@ -129,7 +133,48 @@ int sys_pause(void)
     }
     return 0; // 当信号处理完毕，返回
 }
+/**
+ * @brief 闹钟
+ */
+uint32_t sys_alarm(uint32_t seconds)
+{
+    task_t *cur = cur_task();
 
+    // 如果 seconds 为0，表示取消定时器
+    if (seconds == 0)
+    {
+        cur->alarm_time = 0;
+        return 0;
+    }
+
+    uint32_t prev_time = cur->alarm_time;
+    cur->alarm_time = sys_time(NULL) + seconds; // 设置定时器，单位为秒
+    return prev_time;
+}
+void check_alarm_and_send_signal(task_t *cur)
+{
+    if (cur->alarm_time && cur->alarm_time <= sys_time(NULL))
+    {
+        // 定时器到期，发送 SIGALRM 信号
+        sys_raise(SIGALRM);
+        cur->alarm_time = 0; // 清除定时器
+    }
+}
+void check_stop_and_wakeup(void){
+    //遍历stop_list，看看哪些任务收到了continu信号
+    list_node_t* cur = task_manager.stop_list.first;
+    while (cur)
+    {
+        list_node_t* next= cur->next;
+        task_t* task = list_node_parent(cur,task_t,node);
+        if(task->stop==false){
+            list_remove(&task_manager.stop_list,cur);
+            task_set_ready(task);
+        }
+        cur = next;
+    }
+    
+}
 static void jmp_to_usr(exception_frame_t *frame, signal_handler handler, int signum)
 {
 
@@ -172,18 +217,31 @@ void check_and_handle_signal(task_t *cur, exception_frame_t *frame)
 {
 
     task_t *task = cur;
+
     for (int i = 1; i < SIGNAL_MAX_CNT; ++i)
     {
         uint32_t mask = (1 << i);
         // 如果pending位置1，并且还没有屏蔽
         if ((task->s_pending.bitmap & mask) && !(task->s_mask.bitmap & mask))
         {
-
+            cur->paused = false; // 只要收到信号，就解除暂停
+            //stop和continue信号，没有处理函数，改个标志位直接return
+            if (i == SIGSTOP)
+            {
+                task->stop = true; // 设置为暂停状态
+                task_set_stop(cur);
+                return;
+            }
+            else if (i == SIGCONT)
+            {
+                task->stop = false; // 恢复执行
+                return;
+            }
             signal_handler handler = task->s_handler[i];
             if (handler)
             {
                 // 调用已有的 handle_signal()
-                cur->paused = false;
+
                 if (frame->cs != SELECTOR_USR_CODE_SEG)
                 {
                     return;

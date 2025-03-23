@@ -92,45 +92,47 @@ void signal_test(int signum)
     sigreturn();
 }
 void signal_fork_test(void){
-    // pid_t pid = fork();
-    // if(pid < 0){
-    //     printf("fork error\r\n");
-    // }else if(pid ==0){
+    pid_t pid = fork();
+    if(pid < 0){
+        printf("fork error\r\n");
+    }else if(pid ==0){
         
-    //     signal(SIGUSR1, signal_test);//注册
-    //     pause();//暂停，直到收到sigusr1为止
-    //     //printf("child wake up\r\n");
+        while (true)
+        {
+            printf("i am child,pid=%d\r\n",getpid());
+            sleep(2000);
+        }
         
-    //     //sleep(2000);
         
-    //     printf("i am child,pid=%d\r\n",getpid());
-    //     exit(0);
-    // }else{
-    //     //父进程
-    //     printf("i am father\r\n");
-    //     sleep(2000);
-    //     printf("father send SIGUSR1\r\n");
-    //     kill(pid,SIGUSR1);
-    // }
-    // // 主进程回收所有子进程
-    // for (;;)
-    // {
-    //     int status;
-    //     pid_t cid = wait(&status);
-    //     if (cid > 0)
-    //     {
-    //         printf("Child reclaimed: PID=%d, Status=%d, Main PID=%d\r\n",
-    //                cid, WEXITSTATUS(status), getpid());
-    //     }
-    // }
-    int a = 0;
-    while (true)
-    {
-        printf("i am init task\r\n");
-        signal(SIGUSR1, signal_test);
-        raise(SIGUSR1);
+        
+        exit(0);
+    }else{
+        //父进程
+        printf("i am father\r\n");
+        kill(pid,SIGSTOP);
+        printf("father send SIGSTOP\r\n");
         sleep(2000);
+        kill(pid,SIGCONT);
     }
+    // 主进程回收所有子进程
+    for (;;)
+    {
+        int status;
+        pid_t cid = wait(&status);
+        if (cid > 0)
+        {
+            printf("Child reclaimed: PID=%d, Status=%d, Main PID=%d\r\n",
+                   cid, WEXITSTATUS(status), getpid());
+        }
+    }
+    // int a = 0;
+    // while (true)
+    // {
+    //     printf("i am init task\r\n");
+    //     signal(SIGUSR1, signal_test);
+    //     raise(SIGUSR1);
+    //     sleep(2000);
+    // }
 }
 void malloc_test(void){
     //父进程
@@ -179,5 +181,5 @@ void malloc_test(void){
 }
 void init_task_main(void)
 {
-    malloc_test();
+    signal_fork_test();
 }

@@ -24,6 +24,8 @@ static void pit_init(void)
  * @brief 时钟中断服务程序
  */
 extern void check_and_handle_signal(task_t* cur,exception_frame_t *frame);
+extern void check_alarm_and_send_signal(task_t *cur);
+extern void check_stop_and_wakeup(void);
 void do_handler_timer(exception_frame_t *frame)
 {
     sys_tick += 10;
@@ -31,11 +33,12 @@ void do_handler_timer(exception_frame_t *frame)
     // 发送EOI
     pic_send_eoi(IRQ0_TIMER);
     task_t *cur = cur_task();
-
     
 
     clock_sleep_check(); // 睡醒的任务加入就绪队列
     clock_gwait_check(); // 等待超时的任务加入就绪队列
+    check_alarm_and_send_signal(cur);
+    check_stop_and_wakeup();
     check_and_handle_signal(cur,frame);
     if (!cur)
     {
