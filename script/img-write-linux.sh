@@ -1,6 +1,8 @@
 
 dd if=/dev/zero of=disk1.img bs=1M count=50
 dd if=/dev/zero of=disk2.img bs=1M count=50
+dd if=/dev/zero of=disk3.img bs=1M count=5
+dd if=/dev/zero of=disk4.img bs=1M count=5
 
 if [ -f "disk1.vhd" ]; then
     mv disk1.vhd disk1.img

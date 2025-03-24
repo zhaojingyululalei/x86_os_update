@@ -14,6 +14,6 @@
 #define PIT_MODE3                   (3 << 1)
 void exception_handler_timer (void);
 void clock_init(void);
-
+uint32_t get_systick(void);
 
 #endif

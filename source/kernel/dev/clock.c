@@ -65,3 +65,7 @@ void clock_init(void)
     interupt_install(IRQ0_TIMER, (irq_handler_t)exception_handler_timer);
     irq_enable(IRQ0_TIMER);
 }
+
+uint32_t get_systick(void){
+    return sys_tick;
+}

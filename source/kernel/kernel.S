@@ -85,6 +85,8 @@ exception_handler smd_exception, 19, 0
 exception_handler virtual_exception, 20, 0
 
 exception_handler timer, 0x20, 0
+exception_handler ide_prim, 0x2E,0
+exception_handler ide_slav, 0x2F,0
 # exception_handler kbd, 0x21, 0
 exception_handler rtc, 0x28, 0
 exception_handler signal, 0x40, 0

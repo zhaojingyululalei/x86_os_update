@@ -27,13 +27,36 @@
 #define IRQ20_VE            20
 
 //外部中断,来自8259
+#define IRQ_CLOCK 0      // 时钟
+#define IRQ_KEYBOARD 1   // 键盘
+#define IRQ_CASCADE 2    // 8259 从片控制器
+#define IRQ_SERIAL_2 3   // 串口 2
+#define IRQ_SERIAL_1 4   // 串口 1
+#define IRQ_PARALLEL_2 5 // 并口 2
+#define IRQ_SB16 5       // SB16 声卡
+#define IRQ_FLOPPY 6     // 软盘控制器
+#define IRQ_PARALLEL_1 7 // 并口 1
+#define IRQ_RTC 8        // 实时时钟
+#define IRQ_REDIRECT 9   // 重定向 IRQ2
+#define IRQ_NIC 11       // 网卡
+#define IRQ_MOUSE 12     // 鼠标
+#define IRQ_MATH 13      // 协处理器 x87
+#define IRQ_HARDDISK 14  // ATA 硬盘第一通道
+#define IRQ_HARDDISK2 15 // ATA 硬盘第二通道
+
+#define IRQ_MASTER_NR 0x20 // 主片起始向量号
+#define IRQ_SLAVE_NR 0x28  // 从片起始向量号
 
 #define IRQ0_BASE           0x20
-#define IRQ0_TIMER          0x20                //clock中断
-#define IRQ1_KEYBOARD		0x21				// 按键中断
-#define IRQ8_RTC            0x28                //rtc中断
-#define IRQ12_MOUSE         0x2C                // 鼠标中断号
-#define IRQ14_HARDDISK_PRIMARY		0x2E		// 主总线上的ATA磁盘中断
+#define IRQ0_TIMER          (IRQ0_BASE+IRQ_CLOCK)               //clock中断
+#define IRQ1_KEYBOARD		(IRQ0_BASE+IRQ_KEYBOARD)				// 按键中断
+#define IRQ8_RTC            (IRQ0_BASE+IRQ_RTC)               //rtc中断
+#define IRQ12_MOUSE         (IRQ0_BASE+IRQ_MOUSE)                // 鼠标中断号
+#define IRQ14_HARDDISK_PRIMARY		(IRQ0_BASE+IRQ_HARDDISK)		// 主总线上的ATA磁盘中断
+#define IRQ15_HARDDISK_SLAVE        (IRQ0_BASE+IRQ_HARDDISK2)       //ATA第二通道
+
+
+//软中断
 #define IRQ_SIGNAL          0x40               //用于信号机制
 typedef uint32_t irq_state_t;
 

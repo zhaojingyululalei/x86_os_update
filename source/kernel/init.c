@@ -16,6 +16,8 @@
 #include "printk.h"
 #include "cpu_cfg.h"
 #include "mem/page.h"
+#include "dev/pci.h"
+extern void ide_init(void);
 boot_info_t *os_info;
 static void test(void)
 {
@@ -42,9 +44,10 @@ void kernel_init(boot_info_t *boot_info)
     // 页和 进程模块都弄好了，再写伙伴系统
     mm_bitmap_init(boot_info);
     memory_init();
-    
+    pci_init();
     task_manager_init();
     irq_enable_global();
+    ide_init();
     //test();
     jmp_to_usr_mode();
     

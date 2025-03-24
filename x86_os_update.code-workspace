@@ -52,7 +52,9 @@
 			"kmalloc.h": "c",
 			"signal.h": "c",
 			"irq.h": "c",
-			"traps.h": "c"
+			"traps.h": "c",
+			"pci.h": "c",
+			"ide.h": "c"
 		}
 	}
 }
