@@ -3,7 +3,7 @@
 #include "types.h"
 #include "ipc/mutex.h"
 #include "ipc/semaphore.h"
-
+#include "dev/dma.h"
 #define SECTOR_SIZE 512     // 扇区大小
 
 #define IDE_CTRL_NR 2 // 控制器数量，固定为 2
@@ -81,7 +81,8 @@ typedef struct ide_ctrl_t
     ide_disk_t disks[IDE_DISK_NR]; // 磁盘
     ide_disk_t *active;            // 当前选择的磁盘
     uint8_t control;                    // 控制字节
-    ide_prd_t prd;                 // Physical Region Descriptor
+    ide_prd_t *prdt;                 // Physical Region Descriptor
+    scatter_list_t scatter_list;  // 用于管理DMA缓冲区的分散列表
 } ide_ctrl_t;
 
 int ide_pio_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba);

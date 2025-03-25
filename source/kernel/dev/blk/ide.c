@@ -428,6 +428,7 @@ static void ide_controler_init(void)
         sprintf(ctrl->name, "ide%u", c);
         sys_mutex_init(&ctrl->mutex);
         sys_sem_init(&ctrl->sem, 0);
+        list_init(&ctrl->scatter_list.list);
         ctrl->active = NULL;
         ctrl->iotype = iotype;
         ctrl->bmbase = bmbase + c * 8;
@@ -584,25 +585,50 @@ int ide_pio_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
     return ret;
 }
 
-static void ide_setup_dma(ide_ctrl_t *ctrl, int cmd, char *buf, uint32_t len)
-{
-    // 保证没有跨页
-    ASSERT(((uint32_t)buf + len) <= ((uint32_t)buf & (~0xfff)) + MEM_PAGE_SIZE);
 
-    // 设置 prdt
-    task_t *cur = cur_task();
-    ctrl->prd.addr = vm_to_ph((page_entry_t *)cur->page_table, (vm_addr_t)buf);
-    ctrl->prd.len = len | IDE_LAST_PRD;
 
-    // 设置 prd 地址
-    outl(ctrl->bmbase + BM_PRD_ADDR, (uint32_t)&ctrl->prd);
+// 修改后的DMA设置函数
+static int ide_setup_dma(ide_ctrl_t *ctrl, int cmd, void *buf, uint32_t len) {
+    // 1. 创建分散列表映射
+    int ret = scatter_list_map(&ctrl->scatter_list, (vm_addr_t)buf, len);
+    if (ret < 0) {
+        return ret;
+    }
 
-    // 设置读写
+    // 2. 分配PRD表
+    int nents = list_count(&ctrl->scatter_list.list);
+    ctrl->prdt = dma_alloc_coherent(sizeof(ide_prd_t) * nents);
+    if (!ctrl->prdt) {
+        scatter_list_destory(&ctrl->scatter_list);
+        return -ENOMEM;
+    }
+
+    // 3. 填充PRD表
+    int i = 0;
+    list_node_t *node = list_first(&ctrl->scatter_list.list);
+    while (node) {
+        scatter_node_t *snode = list_node_parent(node, scatter_node_t, node);
+        ctrl->prdt[i].addr = snode->phstart;
+        ctrl->prdt[i].len = snode->len;
+        if (i == nents - 1) {
+            ctrl->prdt[i].len |= IDE_LAST_PRD;
+        }
+        i++;
+        node = list_node_next(node);
+    }
+
+    // 4. 设置PRD表地址
+    outl(ctrl->bmbase + BM_PRD_ADDR, (uint32_t)ctrl->prdt);
+
+    // 5. 设置命令和中断
     outb(ctrl->bmbase + BM_COMMAND_REG, cmd | BM_CR_STOP);
+    outb(ctrl->bmbase + BM_STATUS_REG, 
+         inb(ctrl->bmbase + BM_STATUS_REG) | BM_SR_INT | BM_SR_ERR);
 
-    // 设置中断和错误
-    outb(ctrl->bmbase + BM_STATUS_REG, inb(ctrl->bmbase + BM_STATUS_REG) | BM_SR_INT | BM_SR_ERR);
+    return 0;
 }
+
+
 
 // 启动 DMA
 static void ide_start_dma(ide_ctrl_t *ctrl)
@@ -629,68 +655,105 @@ static int ide_stop_dma(ide_ctrl_t *ctrl)
     }
     return EOK;
 }
-int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
-{
-
+// 修改后的UDMA读取函数
+int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
     int ret = 0;
     ide_ctrl_t *ctrl = disk->ctrl;
 
     sys_mutex_lock(&ctrl->mutex);
 
-    // 设置 DMA
-    ide_setup_dma(ctrl, BM_CR_READ, buf, count * SECTOR_SIZE);
+    // 设置DMA传输
+    ret = ide_setup_dma(ctrl, BM_CR_READ, buf, count * SECTOR_SIZE);
+    if (ret < 0) {
+        sys_mutex_unlock(&ctrl->mutex);
+        return ret;
+    }
 
     // 选择扇区
     ide_select_sector(disk, lba, count);
 
-    // 设置 UDMA 读
-    outb(disk->ctrl->iobase + IDE_COMMAND, IDE_CMD_READ_UDMA);
+    // 设置UDMA读命令
+    outb(ctrl->iobase + IDE_COMMAND, IDE_CMD_READ_UDMA);
 
+    // 启动DMA
     ide_start_dma(ctrl);
 
-    // 阻塞自己等待DMA读取完毕
+    // 等待传输完成
     sys_mutex_unlock(&ctrl->mutex);
     ret = sys_sem_timewait(&ctrl->sem, IDE_TIMEOUT / 1000);
-    if (ret < 0)
-    {
-        return -ETIMEOUT; // 等了半天，数据也没准备好
+    if (ret < 0) {
+        sys_mutex_lock(&ctrl->mutex);
+        ide_stop_dma(ctrl);
+        sys_mutex_unlock(&ctrl->mutex);
+        return -ETIMEOUT;
     }
-    sys_mutex_lock(&ctrl->mutex);
 
-    ASSERT(ide_stop_dma(ctrl) == EOK);
+    sys_mutex_lock(&ctrl->mutex);
+    ret = ide_stop_dma(ctrl);
+    ASSERT(ret == EOK);
+    // 释放资源
+    if (ctrl->prdt) {
+        dma_free_coherent((ph_addr_t)ctrl->prdt, sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
+        ctrl->prdt = NULL;
+    }
+    scatter_list_destory(&ctrl->scatter_list);
 
     sys_mutex_unlock(&ctrl->mutex);
     return ret;
 }
 
-int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
-{
-
+int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
     int ret = EOK;
     ide_ctrl_t *ctrl = disk->ctrl;
+    size_t len = count * SECTOR_SIZE;
 
     sys_mutex_lock(&ctrl->mutex);
 
-    // 设置 DMA
-    ide_setup_dma(ctrl, BM_CR_WRITE, buf, count * SECTOR_SIZE);
+    // 1. 设置DMA传输
+    ret = ide_setup_dma(ctrl, BM_CR_WRITE, buf, len);
+    if (ret < 0) {
+        sys_mutex_unlock(&ctrl->mutex);
+        return ret;
+    }
 
-    // 选择扇区
+    // 2. 选择扇区
     ide_select_sector(disk, lba, count);
 
-    // 设置 UDMA 写
-    outb(disk->ctrl->iobase + IDE_COMMAND, IDE_CMD_WRITE_UDMA);
+    // 3. 设置UDMA写命令
+    outb(ctrl->iobase + IDE_COMMAND, IDE_CMD_WRITE_UDMA);
 
+    // 4. 启动DMA传输
     ide_start_dma(ctrl);
 
+    // 5. 等待传输完成
     sys_mutex_unlock(&ctrl->mutex);
     ret = sys_sem_timewait(&ctrl->sem, IDE_TIMEOUT / 1000);
-    if (ret < 0)
-    {
-        return -ETIMEOUT; // 等了半天，数据也没准备好
+    if (ret < 0) {
+        sys_mutex_lock(&ctrl->mutex);
+        ide_stop_dma(ctrl);
+        // 清理资源
+        if (ctrl->prdt) {
+            dma_free_coherent((ph_addr_t)ctrl->prdt, 
+                            sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
+            ctrl->prdt = NULL;
+        }
+        scatter_list_destory(&ctrl->scatter_list);
+        sys_mutex_unlock(&ctrl->mutex);
+        return -ETIMEOUT;
     }
-    sys_mutex_lock(&ctrl->mutex);
 
-    ASSERT(ide_stop_dma(ctrl) == EOK);
+    sys_mutex_lock(&ctrl->mutex);
+    
+    // 6. 停止DMA并检查状态
+    ret = ide_stop_dma(ctrl);
+    ASSERT(ret == EOK);
+    // 7. 释放资源
+    if (ctrl->prdt) {
+        dma_free_coherent((ph_addr_t)ctrl->prdt, 
+                        sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
+        ctrl->prdt = NULL;
+    }
+    scatter_list_destory(&ctrl->scatter_list);
 
     sys_mutex_unlock(&ctrl->mutex);
     return ret;
@@ -728,9 +791,10 @@ static void pio_read_write_test(void)
     kfree(read_buf);
 }
 static void dma_read_write_test(void){
-    ide_disk_t *disk = &controllers[1].disks[0];
-    uint8_t *write_buf = kmalloc(SECTOR_SIZE * 2);
-    uint8_t *read_buf = kmalloc(SECTOR_SIZE * 2);
+    ide_disk_t *disk = &controllers[1].disks[1];
+    int sector_cnt = 16;
+    uint8_t *write_buf = kmalloc(SECTOR_SIZE * sector_cnt);
+    uint8_t *read_buf = kmalloc(SECTOR_SIZE * sector_cnt);
     for (int i = 0; i < SECTOR_SIZE * 2; i++)
     {
         if (i % 2 == 0)
@@ -743,9 +807,9 @@ static void dma_read_write_test(void){
         }
     }
 
-    ide_udma_write(disk, write_buf, 2, 2);
-    ide_udma_read(disk, read_buf, 2, 2);
-    int ret = strncmp(write_buf, read_buf, SECTOR_SIZE * 2);
+    ide_udma_write(disk, write_buf, sector_cnt, 0);
+    ide_udma_read(disk, read_buf, sector_cnt, 0);
+    int ret = strncmp(write_buf, read_buf, SECTOR_SIZE * sector_cnt);
     if (ret == 0)
     {
         dbg_info("dma read write successful\r\n");
