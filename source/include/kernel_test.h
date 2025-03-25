@@ -15,4 +15,5 @@ extern int sys_calc_add(int a,int b,int c,int d,int e);
 extern void ipc_test(void);
 extern void buddy_system_test(void);
 extern void ide_test(void);
+extern  void dma_test(void);
 #endif

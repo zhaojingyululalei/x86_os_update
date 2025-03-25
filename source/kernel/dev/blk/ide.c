@@ -10,7 +10,7 @@
 #include "task/task.h"
 #include "time/clock.h"
 #include "errno.h"
-#define IDE_TIMEOUT 60000
+#define IDE_TIMEOUT 2000
 
 // IDE 寄存器基址
 #define IDE_IOBASE_PRIMARY 0x1F0   // 主通道基地址
@@ -149,7 +149,7 @@ void do_handler_ide(exception_frame_t *frame)
 
     // 读取常规状态寄存器，表示中断处理结束
     uint8_t state = inb(ctrl->iobase + IDE_STATUS);
-    dbg_info("harddisk interrupt vector %d state 0x%x\n", vector, state);
+    dbg_info("harddisk interrupt vector %d state 0x%x\r\n", vector, state);
     sys_sem_notify(&ctrl->sem);
 }
 void do_handler_ide_prim(exception_frame_t *frame)
@@ -584,6 +584,179 @@ int ide_pio_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
     return ret;
 }
 
+static void ide_setup_dma(ide_ctrl_t *ctrl, int cmd, char *buf, uint32_t len)
+{
+    // 保证没有跨页
+    ASSERT(((uint32_t)buf + len) <= ((uint32_t)buf & (~0xfff)) + MEM_PAGE_SIZE);
+
+    // 设置 prdt
+    task_t *cur = cur_task();
+    ctrl->prd.addr = vm_to_ph((page_entry_t *)cur->page_table, (vm_addr_t)buf);
+    ctrl->prd.len = len | IDE_LAST_PRD;
+
+    // 设置 prd 地址
+    outl(ctrl->bmbase + BM_PRD_ADDR, (uint32_t)&ctrl->prd);
+
+    // 设置读写
+    outb(ctrl->bmbase + BM_COMMAND_REG, cmd | BM_CR_STOP);
+
+    // 设置中断和错误
+    outb(ctrl->bmbase + BM_STATUS_REG, inb(ctrl->bmbase + BM_STATUS_REG) | BM_SR_INT | BM_SR_ERR);
+}
+
+// 启动 DMA
+static void ide_start_dma(ide_ctrl_t *ctrl)
+{
+    outb(ctrl->bmbase + BM_COMMAND_REG, inb(ctrl->bmbase + BM_COMMAND_REG) | BM_CR_START);
+}
+
+static int ide_stop_dma(ide_ctrl_t *ctrl)
+{
+    // 停止 DMA
+    outb(ctrl->bmbase + BM_COMMAND_REG, inb(ctrl->bmbase + BM_COMMAND_REG) & (~BM_CR_START));
+
+    // 获取 DMA 状态
+    uint8_t status = inb(ctrl->bmbase + BM_STATUS_REG);
+
+    // 清除中断和错误位
+    outb(ctrl->bmbase + BM_STATUS_REG, status | BM_SR_INT | BM_SR_ERR);
+
+    // 检测错误
+    if (status & BM_SR_ERR)
+    {
+        dbg_error("IDE dma error %02X\n", status);
+        return -EIO;
+    }
+    return EOK;
+}
+int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+{
+
+    int ret = 0;
+    ide_ctrl_t *ctrl = disk->ctrl;
+
+    sys_mutex_lock(&ctrl->mutex);
+
+    // 设置 DMA
+    ide_setup_dma(ctrl, BM_CR_READ, buf, count * SECTOR_SIZE);
+
+    // 选择扇区
+    ide_select_sector(disk, lba, count);
+
+    // 设置 UDMA 读
+    outb(disk->ctrl->iobase + IDE_COMMAND, IDE_CMD_READ_UDMA);
+
+    ide_start_dma(ctrl);
+
+    // 阻塞自己等待DMA读取完毕
+    sys_mutex_unlock(&ctrl->mutex);
+    ret = sys_sem_timewait(&ctrl->sem, IDE_TIMEOUT / 1000);
+    if (ret < 0)
+    {
+        return -ETIMEOUT; // 等了半天，数据也没准备好
+    }
+    sys_mutex_lock(&ctrl->mutex);
+
+    ASSERT(ide_stop_dma(ctrl) == EOK);
+
+    sys_mutex_unlock(&ctrl->mutex);
+    return ret;
+}
+
+int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+{
+
+    int ret = EOK;
+    ide_ctrl_t *ctrl = disk->ctrl;
+
+    sys_mutex_lock(&ctrl->mutex);
+
+    // 设置 DMA
+    ide_setup_dma(ctrl, BM_CR_WRITE, buf, count * SECTOR_SIZE);
+
+    // 选择扇区
+    ide_select_sector(disk, lba, count);
+
+    // 设置 UDMA 写
+    outb(disk->ctrl->iobase + IDE_COMMAND, IDE_CMD_WRITE_UDMA);
+
+    ide_start_dma(ctrl);
+
+    sys_mutex_unlock(&ctrl->mutex);
+    ret = sys_sem_timewait(&ctrl->sem, IDE_TIMEOUT / 1000);
+    if (ret < 0)
+    {
+        return -ETIMEOUT; // 等了半天，数据也没准备好
+    }
+    sys_mutex_lock(&ctrl->mutex);
+
+    ASSERT(ide_stop_dma(ctrl) == EOK);
+
+    sys_mutex_unlock(&ctrl->mutex);
+    return ret;
+}
+
+static void pio_read_write_test(void)
+{
+    ide_disk_t *disk = &controllers[1].disks[0];
+    uint8_t *write_buf = kmalloc(SECTOR_SIZE * 2);
+    uint8_t *read_buf = kmalloc(SECTOR_SIZE * 2);
+    for (int i = 0; i < SECTOR_SIZE * 2; i++)
+    {
+        if (i % 2 == 0)
+        {
+            write_buf[i] = '0x55';
+        }
+        else
+        {
+            write_buf[i] = '0xaa';
+        }
+    }
+
+    ide_pio_write(disk, write_buf, 2, 0);
+    ide_pio_read(disk, read_buf, 2, 0);
+    int ret = strncmp(write_buf, read_buf, SECTOR_SIZE * 2);
+    if (ret == 0)
+    {
+        dbg_info("pio read write successful\r\n");
+    }
+    else
+    {
+        dbg_info("pio read write failed\r\n");
+    }
+    kfree(write_buf);
+    kfree(read_buf);
+}
+static void dma_read_write_test(void){
+    ide_disk_t *disk = &controllers[1].disks[0];
+    uint8_t *write_buf = kmalloc(SECTOR_SIZE * 2);
+    uint8_t *read_buf = kmalloc(SECTOR_SIZE * 2);
+    for (int i = 0; i < SECTOR_SIZE * 2; i++)
+    {
+        if (i % 2 == 0)
+        {
+            write_buf[i] = '0x66';
+        }
+        else
+        {
+            write_buf[i] = '0xbb';
+        }
+    }
+
+    ide_udma_write(disk, write_buf, 2, 2);
+    ide_udma_read(disk, read_buf, 2, 2);
+    int ret = strncmp(write_buf, read_buf, SECTOR_SIZE * 2);
+    if (ret == 0)
+    {
+        dbg_info("dma read write successful\r\n");
+    }
+    else
+    {
+        dbg_info("dma read write failed\r\n");
+    }
+    kfree(write_buf);
+    kfree(read_buf);
+}
 extern void exception_handler_ide_prim(void);
 extern void exception_handler_ide_slav(void);
 void ide_init(void)
@@ -595,18 +768,5 @@ void ide_init(void)
     irq_enable(IRQ15_HARDDISK_SLAVE);
 
     ide_controler_init();
-    ide_disk_t * disk = &controllers[1].disks[0];
-    uint8_t *buf = kmalloc(SECTOR_SIZE);
-    for (int i = 0; i < SECTOR_SIZE; i++)
-    {
-        if(i%2==0){
-            buf[i] = '0x55';
-        }else{
-            buf[i] = '0xaa';
-        }
-        
-    }
-    
-    ide_pio_write(disk,buf,1,0);
-    kfree(buf);
+    dma_read_write_test();
 }

@@ -21,7 +21,7 @@ extern void ide_init(void);
 boot_info_t *os_info;
 static void test(void)
 {
-    buddy_system_test();
+    dma_test();
     while (true)
     {
         sys_sleep(1000);
@@ -48,7 +48,7 @@ void kernel_init(boot_info_t *boot_info)
     task_manager_init();
     irq_enable_global();
     ide_init();
-    //test();
+    test();
     jmp_to_usr_mode();
     
 
