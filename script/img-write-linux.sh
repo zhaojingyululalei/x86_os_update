@@ -75,4 +75,4 @@ dd if=loader.bin of=$DISK1_NAME bs=512 conv=notrunc seek=1
 dd if=kernel.x.elf of=$DISK1_NAME bs=512 conv=notrunc seek=100
 
 # #写shell
-# dd if=shell.x.elf of=$DISK1_NAME bs=512 conv=notrunc seek=10240
+dd if=shell.x.elf of=$DISK1_NAME bs=512 conv=notrunc seek=10240

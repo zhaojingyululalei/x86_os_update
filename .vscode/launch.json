@@ -63,6 +63,11 @@
                     "ignoreFailures": false
                 },
                 {
+                    "description": "加载shell符号文件",
+                    "text": "add-symbol-file ./image/shell.elf 0x81000000",
+                    "ignoreFailures": false
+                },
+                {
                     "description": "运行至0x7c00",
                     //"text": "break *0x7c00",
                     "text": "break *0x7c00",

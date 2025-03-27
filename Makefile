@@ -6,7 +6,7 @@ all:
 	make -C source/lib/algrithm
 	make -C source/lib/std
 	make -C source/kernel
-	# make -C source/app/shell
+	make -C source/app/shell
 
 clean:
 	-rm ./image/*.img 
@@ -16,4 +16,4 @@ clean:
 	make clean -C source/lib/algrithm
 	make clean -C source/lib/std
 	make clean -C source/kernel
-	# make clean -C source/app/shell
+	make clean -C source/app/shell

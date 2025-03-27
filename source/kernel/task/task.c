@@ -93,7 +93,8 @@ static task_t *create_init_task(void)
  */
 static void record_all_pages_in_range(task_t *task)
 {
-    if (!task || !task->page_table) return;
+    if (!task || !task->page_table)
+        return;
 
     page_entry_t *pde_table = task->page_table;
 
@@ -103,10 +104,12 @@ static void record_all_pages_in_range(task_t *task)
 
     for (int pde_idx = start_pde_idx; pde_idx < end_pde_idx; pde_idx++)
     {
-        if (!pde_table[pde_idx].present) continue;  // 跳过不存在的页目录项
+        if (!pde_table[pde_idx].present)
+            continue; // 跳过不存在的页目录项
 
         page_entry_t *pte_table = (page_entry_t *)(pde_table[pde_idx].phaddr << 12);
-        if (!pte_table) continue;
+        if (!pte_table)
+            continue;
 
         // 计算 PTE 范围（页表索引）
         int start_pte_idx = (pde_idx == start_pde_idx) ? ((USR_ENTRY_BASE >> 12) & 0x3FF) : 0;
@@ -114,7 +117,8 @@ static void record_all_pages_in_range(task_t *task)
 
         for (int pte_idx = start_pte_idx; pte_idx < end_pte_idx; pte_idx++)
         {
-            if (!pte_table[pte_idx].present) continue;  // 跳过不存在的页表项
+            if (!pte_table[pte_idx].present)
+                continue; // 跳过不存在的页表项
 
             vm_addr_t vmaddr = (pde_idx << 22) | (pte_idx << 12);
             ph_addr_t phaddr = pte_table[pte_idx].phaddr << 12;
@@ -125,7 +129,8 @@ static void record_all_pages_in_range(task_t *task)
 }
 static void remove_all_pages_in_range(task_t *task)
 {
-    if (!task || !task->page_table) return;
+    if (!task || !task->page_table)
+        return;
 
     page_entry_t *pde_table = task->page_table;
 
@@ -135,10 +140,12 @@ static void remove_all_pages_in_range(task_t *task)
 
     for (int pde_idx = start_pde_idx; pde_idx < end_pde_idx; pde_idx++)
     {
-        if (!pde_table[pde_idx].present) continue;  // 跳过不存在的页目录项
+        if (!pde_table[pde_idx].present)
+            continue; // 跳过不存在的页目录项
 
         page_entry_t *pte_table = (page_entry_t *)(pde_table[pde_idx].phaddr << 12);
-        if (!pte_table) continue;
+        if (!pte_table)
+            continue;
 
         // 计算 PTE 范围（页表索引）
         int start_pte_idx = (pde_idx == start_pde_idx) ? ((USR_ENTRY_BASE >> 12) & 0x3FF) : 0;
@@ -146,12 +153,13 @@ static void remove_all_pages_in_range(task_t *task)
 
         for (int pte_idx = start_pte_idx; pte_idx < end_pte_idx; pte_idx++)
         {
-            if (!pte_table[pte_idx].present) continue;  // 跳过不存在的页表项
+            if (!pte_table[pte_idx].present)
+                continue; // 跳过不存在的页表项
 
             vm_addr_t vmaddr = (pde_idx << 22) | (pte_idx << 12);
             ph_addr_t phaddr = pte_table[pte_idx].phaddr << 12;
 
-            remove_one_page(task,  vmaddr);
+            remove_one_page(task, vmaddr);
         }
     }
 }
@@ -170,31 +178,31 @@ static void task_record_pages(task_t *task)
     // 记录页目录
     record_one_page(task, task->page_table, task->page_table, PAGE_TYPE_ANON);
 
-    //记录代码段，数据段，bss段等用到的页
+    // 记录代码段，数据段，bss段,arg空间等用到的页
     record_all_pages_in_range(task);
     // 记录栈
     record_continue_pages(task, task->stack_base, task->attr.stack_size, PAGE_TYPE_ANON);
     // 记录任务的内核栈
-    record_one_page(task,task->esp0-MEM_PAGE_SIZE,task->esp0-MEM_PAGE_SIZE,PAGE_TYPE_ANON);
-    //记录signal栈
-    //record_one_page(task,task->signal_stack_base,USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE,PAGE_TYPE_ANON);
-    // 记录堆
+    record_one_page(task, task->esp0 - MEM_PAGE_SIZE, task->esp0 - MEM_PAGE_SIZE, PAGE_TYPE_ANON);
+    // 记录signal栈
+    // record_one_page(task,task->signal_stack_base,USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE,PAGE_TYPE_ANON);
+    //  记录堆
     record_continue_pages(task, task->heap_base, task->attr.heap_size, PAGE_TYPE_ANON);
 }
-static void task_collect_pages(task_t* task){
-    
+static void task_collect_pages(task_t *task)
+{
 
-    //回收代码段，数据段，bss段等用到的页
+    // 回收代码段，数据段，bss段，参数空间等用到的页
     remove_all_pages_in_range(task);
     // 回收栈
-    remove_pages(task,task->stack_base,task->attr.stack_size);
+    remove_pages(task, task->stack_base, task->attr.stack_size);
     // 回收任务的内核栈
-    remove_one_page(task,task->esp0-MEM_PAGE_SIZE);
-    //回收signal栈
-    //remove_one_page(task,USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE);
-    // 回收堆
+    remove_one_page(task, task->esp0 - MEM_PAGE_SIZE);
+    // 回收signal栈
+    // remove_one_page(task,USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE);
+    //  回收堆
     remove_pages(task, task->heap_base, task->attr.heap_size);
-    //释放所有二级页表空间
+    // 释放所有二级页表空间
     for (int i = USR_ENTRY_BASE >> 22; i < 1024; i++)
     {
         if (task->page_table[i].present)
@@ -203,7 +211,7 @@ static void task_collect_pages(task_t* task){
             remove_one_page(task, phaddr);
         }
     }
-    //回收页目录空间
+    // 回收页目录空间
     remove_one_page(task, task->page_table);
 }
 /**
@@ -233,17 +241,21 @@ void jmp_to_usr_mode(void)
     task->esp = stack_utop;
     /*不用写栈帧，直接iret到init进程执行即可*/
 
+    // 给用户分配参数空间
+    ph_addr_t arg_space_base = mm_bitmap_alloc_page();
+    ret = pdt_set_entry(task->page_table, USR_ARG_BASE, arg_space_base, MEM_PAGE_SIZE, PDE_U | PDE_W | PDE_P);
+    ASSERT(ret >= 0);
     // 给用户进程分配内核栈空间
     //(内核栈空间就是中断或者系统调用压入一些上下文，需要的空间不多，就只分配一页)
     ph_addr_t stack_kbase = mm_bitmap_alloc_pages(1);
     task->esp0 = stack_kbase + MEM_PAGE_SIZE;
-    
-    //用户进程分配信号处理栈空间
-    // ph_addr_t signal_stack_base = mm_bitmap_alloc_pages(1);
-    // vm_addr_t signal_stack_vbase = USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE;
-    // ret = pdt_set_entry(task->page_table, signal_stack_vbase, signal_stack_base, MEM_PAGE_SIZE, PDE_U | PDE_W | PDE_P);
-    // task->signal_stack_base = signal_stack_base;
-    // 给用户进程重新分配堆空间
+
+    // 用户进程分配信号处理栈空间
+    //  ph_addr_t signal_stack_base = mm_bitmap_alloc_pages(1);
+    //  vm_addr_t signal_stack_vbase = USR_SIGNAL_STACK_TOP-MEM_PAGE_SIZE;
+    //  ret = pdt_set_entry(task->page_table, signal_stack_vbase, signal_stack_base, MEM_PAGE_SIZE, PDE_U | PDE_W | PDE_P);
+    //  task->signal_stack_base = signal_stack_base;
+    //  给用户进程重新分配堆空间
     vm_addr_t head_ubase = USR_HEAP_BASE;
     ph_addr_t head_kbase = task->heap_base;
     ret = pdt_set_entry(task->page_table, head_ubase, head_kbase, task->attr.heap_size, PDE_P | PDE_U | PDE_W);
@@ -260,11 +272,11 @@ void jmp_to_usr_mode(void)
     tss->cs = SELECTOR_USR_CODE_SEG;
     tss->eip = init_task_entry;
 
-    //记录所有page_t为匿名页
+    // 记录所有page_t为匿名页
     task_record_pages(task);
 
-    //malloc
-    buddy_mmpool_dyn_init(&task->m_pool,USR_HEAP_BASE,task->attr.heap_size);
+    // malloc
+    buddy_mmpool_dyn_init(&task->m_pool, USR_HEAP_BASE, task->attr.heap_size);
     irq_leave_protection(state);
 
     // 模拟中断返回
@@ -539,7 +551,7 @@ static void copy_parent_pdt(task_t *child, task_t *parent)
 /**
  * @brief 复制父进程,创建子进程
  */
-extern void sys_handler_exit(void);
+extern void sys_handler_exit(void); // 系统调用返回
 int sys_fork(void)
 {
     int ret;
@@ -585,7 +597,7 @@ int sys_fork(void)
 
     // 给子进程分配内核栈空间
     child->esp0 = mm_bitmap_alloc_page() + MEM_PAGE_SIZE;
-    
+
     // 获取父进程内核 sysenter_frmae栈帧,获取返回到用户态的 esp和eip
     sysenter_frame_t *sysenter_frame = (sysenter_frame_t *)(parent->esp0 - sizeof(sysenter_frame_t));
     vm_addr_t ret_esp = sysenter_frame->esp;
@@ -610,12 +622,12 @@ int sys_fork(void)
     // 将子进程加入就绪队列
     task_set_ready(child);
 
-    //记录子进程页信息
+    // 记录子进程页信息
     task_record_pages(child);
-    //malloc,二者堆空间的分配状况一模一样。例如父进程已经分配了0x90000000~0x90004000 那么子进程也分配了0x90000000~0x90004000
-    
-    memcpy(&child->m_pool,&parent->m_pool,sizeof(buddy_mmpool_dyn_t));
-    rb_tree_copy(&parent->m_pool.sys.tree,&child->m_pool.sys.tree);
+    // malloc,二者堆空间的分配状况一模一样。例如父进程已经分配了0x90000000~0x90004000 那么子进程也分配了0x90000000~0x90004000
+
+    memcpy(&child->m_pool, &parent->m_pool, sizeof(buddy_mmpool_dyn_t));
+    rb_tree_copy(&parent->m_pool.sys.tree, &child->m_pool.sys.tree);
     irq_leave_protection(state);
     sys_yield();
     return child->pid;
@@ -662,7 +674,7 @@ int task_collect(task_t *task)
 
     // task_manager相关资源
     task_manager.tasks[task->pid] = NULL;
-    release_id(&task_manager.pid_pool,task->pid);
+    release_id(&task_manager.pid_pool, task->pid);
     task_pool_free(task);
 }
 
@@ -708,4 +720,234 @@ int sys_wait(int *status)
         // 唤醒之后，接着从遍历child_list链表开始执行
         irq_leave_protection(state);
     }
+}
+#include "elf.h"
+#include "fs/fs.h"
+static int load_phdr(int fd, Elf32_Phdr *phdr, task_t *task)
+{
+    int ret;
+    ph_addr_t start_vm = phdr->p_vaddr;
+    uint32_t memsize = phdr->p_memsz;
+    memsize = align_up(memsize, MEM_PAGE_SIZE);
+    int block = memsize / MEM_PAGE_SIZE;
+    ph_addr_t start_ph = mm_bitmap_alloc_pages(block);
+    if (ret < 0)
+    {
+        dbg_error("mmbitmap alloc err\r\n");
+        return -1;
+    }
+
+    // 调整当前的读写位置
+    if (sys_lseek(fd, phdr->p_offset, 0) < 0)
+    {
+        dbg_error("read file failed");
+        return -1;
+    }
+    // 拷贝头
+    if (sys_read(fd, (char *)start_ph, phdr->p_filesz) != phdr->p_filesz)
+    {
+        dbg_error("read file failed");
+        return -1;
+    }
+    // 存在bss区
+    if (phdr->p_memsz > phdr->p_filesz)
+    {
+        // 清零
+        memset(start_ph + phdr->p_filesz, 0, phdr->p_memsz - phdr->p_filesz);
+    }
+    // 建立映射关系
+    pdt_set_entry(task->page_table, start_vm, start_ph, memsize, PDE_U | PDE_W | PDE_P);
+    return 0;
+}
+static ph_addr_t load_app_elf(task_t *task, const char *path)
+{
+    ph_addr_t entry = 0;
+    Elf32_Ehdr elf_hdr;
+    Elf32_Phdr elf_phdr;
+
+    int fd = sys_open(path, 0, 0);
+    if (fd < 0)
+    {
+        dbg_error("open app xxx.elf fail\r\n");
+        return 0;
+    }
+
+    // 读elf头
+    int cnt = sys_read(fd, (char *)&elf_hdr, sizeof(Elf32_Ehdr));
+    if (cnt != sizeof(Elf32_Ehdr))
+    {
+        dbg_error("read app elf head wrong\r\n");
+        return 0;
+    }
+
+    // 检查elf文件格式
+    // 检查magic
+    if ((elf_hdr.e_ident[0] != ELF_MAGIC) || (elf_hdr.e_ident[1] != 'E') || (elf_hdr.e_ident[2] != 'L') || (elf_hdr.e_ident[3] != 'F'))
+    {
+        dbg_error("check elf indent failed.\r\n");
+        return 0;
+    }
+    // 检查app架构
+    if (elf_hdr.e_machine != EM_386)
+    {
+        dbg_error("app incompatible machine architecture\r\n");
+        return 0;
+    }
+    // 检查文件类型
+    if (elf_hdr.e_type != ET_EXEC)
+    {
+        dbg_error("it is not an exec file\r\n");
+        return 0;
+    }
+    // 检查入口地址
+    if (elf_hdr.e_entry < USR_ENTRY_BASE)
+    {
+        dbg_error("app entry wrong\r\n");
+        return 0;
+    }
+    else
+    {
+        entry = elf_hdr.e_entry;
+    }
+
+    // 读取程序头元信息并解析
+    uint32_t e_phoff = elf_hdr.e_phoff;
+    for (int i = 0; i < elf_hdr.e_phnum; i++, e_phoff += elf_hdr.e_phentsize)
+    {
+        if (sys_lseek(fd, e_phoff, 0) < 0)
+        {
+            dbg_error("read file failed");
+            return 0;
+        }
+
+        // 读取程序头后解析，这里不用读取到新进程的页表中，因为只是临时使用下
+        cnt = sys_read(fd, (char *)&elf_phdr, sizeof(Elf32_Phdr));
+        if (cnt != sizeof(Elf32_Phdr))
+        {
+            dbg_error("read file failed");
+            return 0;
+        }
+
+        // 简单做一些检查，如有必要，可自行加更多
+        // 主要判断是否是可加载的类型，并且要求加载的地址必须是用户空间
+        if ((elf_phdr.p_type != PT_LOAD) || (elf_phdr.p_vaddr < USR_ENTRY_BASE))
+        {
+            continue;
+        }
+
+        // 加载当前程序头
+        int err = load_phdr(fd, &elf_phdr, task);
+        if (err < 0)
+        {
+            dbg_error("load program hdr failed");
+            return 0;
+        }
+    }
+
+    sys_close(fd);
+
+    return entry;
+}
+#define ARG_MAX_CNT 64
+#define ENV_MAX_CNT ARG_MAX_CNT
+static int argv_cpy(task_t* task,ph_addr_t arg_space_base, char *const *argv, char *const *env)
+{
+    char *arg_buf = (char *)(arg_space_base);
+    char **argv_new = (char **)arg_buf;
+    char **env_new = &argv_new[ARG_MAX_CNT];                                // env 紧接着 argv 指针数组后存
+    char *str_ptr = arg_buf + sizeof(char *) * (ARG_MAX_CNT + ENV_MAX_CNT); // 预留指针空间后，存字符串
+    int i = 0;
+    // 拷贝 argv 中的字符串并记录新地址
+    while (argv[i] != NULL && i < ARG_MAX_CNT)
+    {
+        size_t len = strlen(argv[i]) + 1;
+        memcpy(str_ptr, argv[i], len);
+        argv_new[i] = (char *)(arg_space_base + (str_ptr - arg_buf)); // 设置用户态地址
+        argv_new[i] = ((ph_addr_t)argv_new[i] & 0xFFF) + USR_ARG_BASE;
+        str_ptr += len;
+        i++;
+    }
+    argv_new[i] = NULL; // argv 结束
+    task->argc = i;
+    task->argv = (char **)(arg_space_base);
+    task->argv = ((ph_addr_t)task->argv & 0xFFF) + USR_ARG_BASE;
+    //  拷贝 env 中的字符串并记录新地址
+    env_new = &argv_new[ARG_MAX_CNT]; // env 紧接着 argv 指针数组后存
+    i = 0;
+    while (env[i] != NULL && i < ENV_MAX_CNT)
+    {
+        size_t len = strlen(env[i]) + 1;
+        memcpy(str_ptr, env[i], len);
+        env_new[i] = (char *)(arg_space_base + (str_ptr - arg_buf)); // 设置用户态地址
+        env_new[i] = ((ph_addr_t)env_new[i] & 0xFFF) + USR_ARG_BASE;
+        str_ptr += len;
+        i++;
+    }
+    env_new[i] = NULL; // env 结束
+    task->envc = i;
+     
+    task->env = (uint32_t)arg_space_base + sizeof(char *) * ARG_MAX_CNT;
+    task->env = ((ph_addr_t)task->env & 0xFFF) + USR_ARG_BASE;
+    return 0;
+}
+int sys_execve(const char *path, char *const *argv, char *const *env)
+{
+    int ret;
+    irq_state_t state = irq_enter_protection();
+
+    task_t *task = cur_task();
+    /*
+    栈不用管，直接覆盖就行
+    堆空间直接释放，替换成新进程了，之前的堆开辟的空间的数据完全用不上
+    用户代码段数据段全释放，替换成新的代码段数据段
+    */
+
+    // 回收之前开辟的堆空间
+    remove_pages(task, task->heap_base, task->attr.heap_size);
+    //  给用户进程重新分配堆空间
+    vm_addr_t head_ubase = USR_HEAP_BASE;
+    ph_addr_t head_kbase = mm_bitmap_alloc_pages(task->attr.heap_size/MEM_PAGE_SIZE);
+    ret = pdt_set_entry(task->page_table, head_ubase, head_kbase, task->attr.heap_size, PDE_P | PDE_U | PDE_W);
+    ASSERT(ret >= 0);
+    task->heap_base = head_ubase;
+    //  记录堆
+    record_continue_pages(task, task->heap_base, task->attr.heap_size, PAGE_TYPE_ANON);
+
+    char new_path[128];
+    strncpy(new_path, path, strlen(path));
+    ph_addr_t arg_space_base = mm_bitmap_alloc_page();
+    argv_cpy(task, arg_space_base,argv, env); // 将所有参数拷贝到参数空间
+    // 回收用户代码段，数据段，bss段，参数空间等用到的页
+    remove_all_pages_in_range(task);
+    
+    // 加载用户代码段数据段
+    vm_addr_t entry = load_app_elf(task, new_path);
+    if (entry == NULL)
+    {
+        dbg_error("load app fail\r\n");
+        irq_leave_protection(state);
+        return -1;
+    }
+    // 加载用户参数空间
+    ret = pdt_set_entry(task->page_table, USR_ARG_BASE, arg_space_base, MEM_PAGE_SIZE, PDE_U | PDE_W | PDE_P);
+    ASSERT(ret >= 0);
+    // 记录用户数据代码段，参数空间
+    record_all_pages_in_range(task);
+
+    // 设置栈帧
+    
+    vm_addr_t vm_stack_top = USR_STACK_TOP - 1;//用户栈顶
+    ph_addr_t k_stack_top = task->esp0;  //内核栈顶
+
+    sysenter_frame_t* sysenter_frame = (sysenter_frame_t*)(k_stack_top-sizeof(sysenter_frame_t));
+    
+    cr0_frame_t* cr0_frame = (cr0_frame_t*)(vm_stack_top-sizeof(cr0_frame_t));
+    cr0_frame->argc = task->argc;
+    cr0_frame->argv = task->argv;
+    cr0_frame->envc = task->envc;
+    cr0_frame->env = task->env;
+    sysenter_frame->edx = entry;
+    sysenter_frame->ecx = (uint32_t)cr0_frame;
+    irq_leave_protection(state);
+    return 0;
 }

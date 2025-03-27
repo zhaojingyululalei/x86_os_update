@@ -153,6 +153,54 @@ void free(void* ptr){
     arg.arg0 = ptr;
     sys_call(&arg);
 }
+int open(const char *path, int flags, uint32_t mode){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_open;
+    arg.arg0 = path;
+    arg.arg1 = flags;
+    arg.arg2 = mode;
+    ret = sys_call(&arg);
+    return ret;
+}
+int read(int fd, char *buf, int len){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_read;
+    arg.arg0 = fd;
+    arg.arg1 = buf;
+    arg.arg2 = len;
+    ret = sys_call(&arg);
+    return ret;
+}
+int lseek(int fd, int offset, int whence){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_lseek;
+    arg.arg0 = fd;
+    arg.arg1 = offset;
+    arg.arg2 = whence;
+    ret = sys_call(&arg);
+    return ret;
+}
+int close(int fd){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_close;
+    arg.arg0 = fd;
+    ret = sys_call(&arg);
+    return ret;
+}
+int execve(const char *path, char *const *argv, char *const *env){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_execve;
+    arg.arg0 = path;
+    arg.arg1 = argv;
+    arg.arg2 = env;
+    ret = sys_call(&arg);
+    return ret;
+}
 void printf(char *fmt, ...)
 {
 

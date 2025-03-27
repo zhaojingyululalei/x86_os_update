@@ -197,6 +197,13 @@ int remove_one_page(task_t* task,vm_addr_t vm_addr){
     
     //通过映射，获取物理地址
     ph_addr_t phaddr = vm_to_ph(task->page_table,vm_addr);
+
+    //获取pte结构
+    page_entry_t* pte = get_pte(task->page_table,vm_addr);
+    if(vm_addr >= USR_ENTRY_BASE){
+        pte->present = 0;
+    }
+    
     //找到对应的页结构
     rb_node_t *node = rb_tree_find_by(&page_tree,phaddr,compare_phaddr);
     page_t* page = NULL;

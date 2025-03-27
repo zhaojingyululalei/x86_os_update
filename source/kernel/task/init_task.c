@@ -88,31 +88,35 @@ void signal_test(int signum)
 {
 
     printf("Main process finished: PID=%d, signum=%d\r\n", getpid(), signum);
-    
+
     sigreturn();
 }
-void signal_fork_test(void){
+void signal_fork_test(void)
+{
     pid_t pid = fork();
-    if(pid < 0){
+    if (pid < 0)
+    {
         printf("fork error\r\n");
-    }else if(pid ==0){
-        
+    }
+    else if (pid == 0)
+    {
+
         while (true)
         {
-            printf("i am child,pid=%d\r\n",getpid());
+            printf("i am child,pid=%d\r\n", getpid());
             sleep(2000);
         }
-        
-        
-        
+
         exit(0);
-    }else{
-        //父进程
+    }
+    else
+    {
+        // 父进程
         printf("i am father\r\n");
-        kill(pid,SIGSTOP);
+        kill(pid, SIGSTOP);
         printf("father send SIGSTOP\r\n");
         sleep(2000);
-        kill(pid,SIGCONT);
+        kill(pid, SIGCONT);
     }
     // 主进程回收所有子进程
     for (;;)
@@ -134,31 +138,35 @@ void signal_fork_test(void){
     //     sleep(2000);
     // }
 }
-void malloc_test(void){
-    //父进程
-        int* ret = malloc(4096);
-        // while (1)
-        // {
-            printf("father ret = 0x%x\r\n",ret);
-            sleep(1000);
-        // }
+void malloc_test(void)
+{
+    // 父进程
+    int *ret = malloc(4096);
+    // while (1)
+    // {
+    printf("father ret = 0x%x\r\n", ret);
+    sleep(1000);
+    // }
     pid_t pid = fork();
-    if(pid < 0){
+    if (pid < 0)
+    {
         printf("fork error\r\n");
-    }else if(pid ==0){
-        
-        int* ret = malloc(4096);
+    }
+    else if (pid == 0)
+    {
+
+        int *ret = malloc(4096);
         while (true)
         {
 
-            printf("child ret = 0x%x\r\n",ret);
+            printf("child ret = 0x%x\r\n", ret);
             sleep(1000);
         }
-        
+
         exit(0);
-    }else{
-        
-        
+    }
+    else
+    {
     }
     // 主进程回收所有子进程
     for (;;)
@@ -177,9 +185,40 @@ void malloc_test(void){
     // {
     //     sleep(2000);
     // }
-    
+}
+void execve_test(void)
+{
+    pid_t pid = fork();
+    if (pid < 0)
+    {
+        printf("fork error\r\n");
+    }
+    else if (pid == 0)
+    {
+
+        
+        char *argv[] = {"hello","world",NULL};
+        char *env[] = {"zhao","jing","yu",NULL};
+        execve("/shell", argv, env);
+
+        exit(0);
+    }
+    else
+    {
+    }
+    // 主进程回收所有子进程
+    for (;;)
+    {
+        int status;
+        pid_t cid = wait(&status);
+        if (cid > 0)
+        {
+            printf("Child reclaimed: PID=%d, Status=%d, Main PID=%d\r\n",
+                   cid, WEXITSTATUS(status), getpid());
+        }
+    }
 }
 void init_task_main(void)
 {
-    signal_fork_test();
+    execve_test();
 }

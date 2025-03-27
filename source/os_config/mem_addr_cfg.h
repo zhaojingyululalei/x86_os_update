@@ -22,9 +22,13 @@
 /*虚拟地址设计*/
 #define USR_STACK_TOP   0xEFFF0000 //用户栈顶地址
 #define USR_SIGNAL_STACK_TOP    0xE0000000
-#define USR_ENTRY_BASE  0x80000000  //用户态起始虚拟地址
-#define USR_HEAP_BASE   0x90000000 //用户堆空间地址
 
-#define VMALLOC_BASE    0xA0000000 //vmalloc管理的范围
 #define VMALLOC_END     0xB0000000
+#define VMALLOC_BASE    0xA0000000 //vmalloc管理的范围
+
+#define USR_HEAP_BASE   0x90000000 //用户堆空间地址
+#define USR_ARG_BASE    0x8000D000  //用户参数空间
+#define USR_ENTRY_BASE  0x80000000  //用户态起始虚拟地址
+
 #endif
+

@@ -154,7 +154,7 @@ void mm_bitmap_free_page(ph_addr_t addr) {
     int byte_index = bit_index / 8;
     int bit_offset = bit_index % 8;
     mm_bitmap.map[byte_index] &= ~(1 << bit_offset);  // 标记为未占用
-    memset((void*)addr,0,MEM_PAGE_SIZE);
+    //memset((void*)addr,0,MEM_PAGE_SIZE);
 }
 
 /**

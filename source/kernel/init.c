@@ -18,14 +18,12 @@
 #include "mem/page.h"
 #include "dev/pci.h"
 extern void ide_init(void);
+extern void fs_init(void);
 boot_info_t *os_info;
 static void test(void)
 {
-    dma_test();
-    while (true)
-    {
-        sys_sleep(1000);
-    }
+    //dma_test();
+    
     
 }
 
@@ -48,6 +46,7 @@ void kernel_init(boot_info_t *boot_info)
     task_manager_init();
     irq_enable_global();
     ide_init();
+    fs_init();
     test();
     jmp_to_usr_mode();
     

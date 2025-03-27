@@ -35,7 +35,6 @@
 			"syscall.h": "c",
 			"kernel_test.h": "c",
 			"stdlib.h": "c",
-			"_stdlib.h": "c",
 			"fs.h": "c",
 			"*.tcc": "c",
 			"cstdio": "c",
