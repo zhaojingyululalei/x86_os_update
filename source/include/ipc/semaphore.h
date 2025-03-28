@@ -16,4 +16,5 @@ void sys_sem_wait(sem_t *sem);
 int sys_sem_trywait(sem_t *sem);
 int sys_sem_timewait(sem_t *sem, uint32_t abs_timeout);
 void sys_sem_notify(sem_t *sem);
+int sys_sem_count(sem_t *sem);
 #endif

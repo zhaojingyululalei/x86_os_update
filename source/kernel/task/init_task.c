@@ -167,6 +167,8 @@ void malloc_test(void)
     }
     else
     {
+        
+        
     }
     // 主进程回收所有子进程
     for (;;)
@@ -205,6 +207,11 @@ void execve_test(void)
     }
     else
     {
+        while (true)
+        {
+            printf("i am father\r\n");
+            sleep(2000);
+        }
     }
     // 主进程回收所有子进程
     for (;;)

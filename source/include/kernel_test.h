@@ -16,4 +16,5 @@ extern void ipc_test(void);
 extern void buddy_system_test(void);
 extern void ide_test(void);
 extern  void dma_test(void);
+void console_test(void);
 #endif

@@ -22,7 +22,7 @@ extern void fs_init(void);
 boot_info_t *os_info;
 static void test(void)
 {
-    //dma_test();
+    console_test();
     
     
 }
