@@ -19,10 +19,13 @@
 #include "dev/pci.h"
 extern void ide_init(void);
 extern void fs_init(void);
+extern void kbd_init(void);
+extern  void devfs_init(void);
+extern void tty_init(void);
 boot_info_t *os_info;
 static void test(void)
 {
-    console_test();
+    tty_test();
     
     
 }
@@ -38,15 +41,20 @@ void kernel_init(boot_info_t *boot_info)
     clock_init();
     time_init();
     rtc_init();
+    kbd_init();
     // 暂时用位图分配内存过度，分配页表，分配进程PCB都用位图分
     // 页和 进程模块都弄好了，再写伙伴系统
     mm_bitmap_init(boot_info);
     memory_init();
     pci_init();
     task_manager_init();
+    devfs_init();
+    tty_init();
     irq_enable_global();
-    ide_init();
-    fs_init();
+    ide_init(); //用到了中断
+    
+    fs_init();//用到了ide
+
     test();
     jmp_to_usr_mode();
     

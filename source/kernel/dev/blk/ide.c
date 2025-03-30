@@ -832,5 +832,5 @@ void ide_init(void)
     irq_enable(IRQ15_HARDDISK_SLAVE);
 
     ide_controler_init();
-    dma_read_write_test();
+    //dma_read_write_test();
 }
