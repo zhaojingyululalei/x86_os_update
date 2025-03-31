@@ -398,6 +398,102 @@ rollback:
     sys_mutex_unlock(&disk->ctrl->mutex);
     return ret;
 }
+static void ide_part_init(ide_disk_t *disk, uint16_t *buf)
+{
+    // 磁盘不可用
+    if (!disk->total_lba)
+        return;
+
+    // 读取主引导扇区
+    ide_pio_read(disk, buf, 1, 0);
+
+    // 初始化主引导扇区
+    boot_sector_t *boot = (boot_sector_t *)buf;
+
+    // 首先计算主分区数量
+    size_t primary_count = 0;
+    for (size_t i = 0; i < 4; i++)
+    {
+        if (boot->entry[i].count)
+            primary_count++;
+    }
+
+    // 遍历MBR中的4个分区表项
+    for (size_t i = 0; i < 4; i++)
+    {
+        part_entry_t *entry = &boot->entry[i];
+        ide_part_t *part = &disk->parts[i];
+
+        // 如果该分区表项没有定义分区，跳过
+        if (!entry->count)
+            continue;
+
+        sprintf(part->name, "%s%d", disk->name, i + 1);
+        dbg_info("part %s \r\n", part->name);
+        dbg_info("    bootable %d\r\n", entry->bootable);
+        dbg_info("    start %d\r\n", entry->start);
+        dbg_info("    count %d\r\n", entry->count);
+        dbg_info("    system %d\r\n", entry->system);
+
+        part->disk = disk;
+        part->count = entry->count;
+        part->system = entry->system;
+        part->start = entry->start;
+
+        if (entry->system == PART_FS_EXTENDED)
+        {
+            dbg_info("Parsing extended partition...\n");
+
+            boot_sector_t *eboot = (boot_sector_t *)(buf + SECTOR_SIZE);
+            uint32_t current_ebr_lba = entry->start; // 第一个 EBR 在扩展分区起始位置
+
+            size_t logic_part_index = primary_count;
+            size_t logical_part_num = 1;
+
+            while (1)
+            {
+                // 读取当前 EBR
+                ide_pio_read(disk, (void *)eboot, 1, current_ebr_lba);
+
+                part_entry_t *eentry = &eboot->entry[0]; // 当前逻辑分区的信息
+                if (!eentry->count)
+                    break;
+
+                if (logic_part_index >= IDE_PART_NR)
+                {
+                    dbg_info("Too many logical partitions, maximum is %d\n", IDE_PART_NR);
+                    break;
+                }
+
+                // 创建逻辑分区
+                ide_part_t *elogic_part = &disk->parts[logic_part_index++];
+                sprintf(elogic_part->name, "%s%d", disk->name, 4 + logical_part_num++);
+                elogic_part->disk = disk;
+                elogic_part->count = eentry->count;
+                elogic_part->system = eentry->system;
+                elogic_part->start = current_ebr_lba + eentry->start; // 关键修正：绝对 LBA = 当前 EBR + 相对偏移
+
+                dbg_info("    Logical partition %d\r\n", logical_part_num - 1);
+                dbg_info("    bootable %d\r\n", eentry->bootable);
+                dbg_info("    start %d (relative) -> %d (absolute)\r\n",
+                         eentry->start, elogic_part->start);
+                dbg_info("    count %d\r\n", eentry->count);
+                dbg_info("    system 0x%x\r\n", eentry->system);
+
+                // 检查是否有下一个 EBR（entry[1] 指向下一个 EBR）
+                if (eboot->entry[1].count != 0)
+                {
+                    current_ebr_lba = entry->start + eboot->entry[1].start; // 关键修正：更新到下一个 EBR
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+    }
+}
+
 static void ide_controler_init(void)
 {
     int iotype = IDE_TYPE_PIO;
@@ -472,7 +568,8 @@ static void ide_controler_init(void)
                 disk->sector_size = SECTOR_SIZE;
                 if (ide_identify(disk, buf) == EOK)
                 {
-                    // ide_part_init(disk, buf);
+                    memset(buf, 0, MEM_PAGE_SIZE);
+                    ide_part_init(disk, buf); //解析磁盘分区
                     dbg_info("disk %s identify ok\r\n", disk->name);
                 }
             }
@@ -585,20 +682,21 @@ int ide_pio_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
     return ret;
 }
 
-
-
 // 修改后的DMA设置函数
-static int ide_setup_dma(ide_ctrl_t *ctrl, int cmd, void *buf, uint32_t len) {
+static int ide_setup_dma(ide_ctrl_t *ctrl, int cmd, void *buf, uint32_t len)
+{
     // 1. 创建分散列表映射
     int ret = scatter_list_map(&ctrl->scatter_list, (vm_addr_t)buf, len);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         return ret;
     }
 
     // 2. 分配PRD表
     int nents = list_count(&ctrl->scatter_list.list);
     ctrl->prdt = dma_alloc_coherent(sizeof(ide_prd_t) * nents);
-    if (!ctrl->prdt) {
+    if (!ctrl->prdt)
+    {
         scatter_list_destory(&ctrl->scatter_list);
         return -ENOMEM;
     }
@@ -606,11 +704,13 @@ static int ide_setup_dma(ide_ctrl_t *ctrl, int cmd, void *buf, uint32_t len) {
     // 3. 填充PRD表
     int i = 0;
     list_node_t *node = list_first(&ctrl->scatter_list.list);
-    while (node) {
+    while (node)
+    {
         scatter_node_t *snode = list_node_parent(node, scatter_node_t, node);
         ctrl->prdt[i].addr = snode->phstart;
         ctrl->prdt[i].len = snode->len;
-        if (i == nents - 1) {
+        if (i == nents - 1)
+        {
             ctrl->prdt[i].len |= IDE_LAST_PRD;
         }
         i++;
@@ -622,13 +722,11 @@ static int ide_setup_dma(ide_ctrl_t *ctrl, int cmd, void *buf, uint32_t len) {
 
     // 5. 设置命令和中断
     outb(ctrl->bmbase + BM_COMMAND_REG, cmd | BM_CR_STOP);
-    outb(ctrl->bmbase + BM_STATUS_REG, 
+    outb(ctrl->bmbase + BM_STATUS_REG,
          inb(ctrl->bmbase + BM_STATUS_REG) | BM_SR_INT | BM_SR_ERR);
 
     return 0;
 }
-
-
 
 // 启动 DMA
 static void ide_start_dma(ide_ctrl_t *ctrl)
@@ -656,7 +754,8 @@ static int ide_stop_dma(ide_ctrl_t *ctrl)
     return EOK;
 }
 // 修改后的UDMA读取函数
-int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
+int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+{
     int ret = 0;
     ide_ctrl_t *ctrl = disk->ctrl;
 
@@ -664,7 +763,8 @@ int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
 
     // 设置DMA传输
     ret = ide_setup_dma(ctrl, BM_CR_READ, buf, count * SECTOR_SIZE);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         sys_mutex_unlock(&ctrl->mutex);
         return ret;
     }
@@ -681,7 +781,8 @@ int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
     // 等待传输完成
     sys_mutex_unlock(&ctrl->mutex);
     ret = sys_sem_timewait(&ctrl->sem, IDE_TIMEOUT / 1000);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         sys_mutex_lock(&ctrl->mutex);
         ide_stop_dma(ctrl);
         sys_mutex_unlock(&ctrl->mutex);
@@ -692,7 +793,8 @@ int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
     ret = ide_stop_dma(ctrl);
     ASSERT(ret == EOK);
     // 释放资源
-    if (ctrl->prdt) {
+    if (ctrl->prdt)
+    {
         dma_free_coherent((ph_addr_t)ctrl->prdt, sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
         ctrl->prdt = NULL;
     }
@@ -702,7 +804,8 @@ int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
     return ret;
 }
 
-int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
+int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+{
     int ret = EOK;
     ide_ctrl_t *ctrl = disk->ctrl;
     size_t len = count * SECTOR_SIZE;
@@ -711,7 +814,8 @@ int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
 
     // 1. 设置DMA传输
     ret = ide_setup_dma(ctrl, BM_CR_WRITE, buf, len);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         sys_mutex_unlock(&ctrl->mutex);
         return ret;
     }
@@ -728,13 +832,15 @@ int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
     // 5. 等待传输完成
     sys_mutex_unlock(&ctrl->mutex);
     ret = sys_sem_timewait(&ctrl->sem, IDE_TIMEOUT / 1000);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         sys_mutex_lock(&ctrl->mutex);
         ide_stop_dma(ctrl);
         // 清理资源
-        if (ctrl->prdt) {
-            dma_free_coherent((ph_addr_t)ctrl->prdt, 
-                            sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
+        if (ctrl->prdt)
+        {
+            dma_free_coherent((ph_addr_t)ctrl->prdt,
+                              sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
             ctrl->prdt = NULL;
         }
         scatter_list_destory(&ctrl->scatter_list);
@@ -743,14 +849,15 @@ int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba) {
     }
 
     sys_mutex_lock(&ctrl->mutex);
-    
+
     // 6. 停止DMA并检查状态
     ret = ide_stop_dma(ctrl);
     ASSERT(ret == EOK);
     // 7. 释放资源
-    if (ctrl->prdt) {
-        dma_free_coherent((ph_addr_t)ctrl->prdt, 
-                        sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
+    if (ctrl->prdt)
+    {
+        dma_free_coherent((ph_addr_t)ctrl->prdt,
+                          sizeof(ide_prd_t) * list_count(&ctrl->scatter_list.list));
         ctrl->prdt = NULL;
     }
     scatter_list_destory(&ctrl->scatter_list);
@@ -790,7 +897,8 @@ static void pio_read_write_test(void)
     kfree(write_buf);
     kfree(read_buf);
 }
-static void dma_read_write_test(void){
+static void dma_read_write_test(void)
+{
     ide_disk_t *disk = &controllers[1].disks[1];
     int sector_cnt = 16;
     uint8_t *write_buf = kmalloc(SECTOR_SIZE * sector_cnt);
@@ -832,5 +940,5 @@ void ide_init(void)
     irq_enable(IRQ15_HARDDISK_SLAVE);
 
     ide_controler_init();
-    //dma_read_write_test();
+    // dma_read_write_test();
 }

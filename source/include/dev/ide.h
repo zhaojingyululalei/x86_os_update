@@ -8,9 +8,15 @@
 
 #define IDE_CTRL_NR 2 // 控制器数量，固定为 2
 #define IDE_DISK_NR 2 // 每个控制器可挂磁盘数量，固定为 2
+#define IDE_PART_NR 16 
 
-
-
+typedef enum PART_FS
+{
+    PART_FS_FAT12 = 1,    // FAT12
+    PART_FS_EXTENDED = 5, // 扩展分区
+    PART_FS_MINIX = 0x80, // minux
+    PART_FS_LINUX = 0x83, // linux
+} PART_FS;
 typedef struct part_entry_t
 {
     uint8_t bootable;             // 引导标志
@@ -63,7 +69,7 @@ typedef struct ide_disk_t
     uint32_t sectors;                   // 扇区数
     uint32_t interface;                 // 磁盘类型
     uint32_t sector_size;               // 扇区大小
-    ide_part_t *parts;                  // 硬盘分区
+    ide_part_t parts[IDE_PART_NR];                  // 硬盘分区
 } ide_disk_t;
 
 // IDE 控制器

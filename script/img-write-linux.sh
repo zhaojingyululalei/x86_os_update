@@ -21,8 +21,8 @@ echo "label: dos" | sfdisk $DISK2_NAME << EOF
 ,1M,83
 ,1M,83
 ,1M,83
-,4M,5
-,1M,83
+,5M,5
+,2M,83
 ,1M,83
 EOF
 
@@ -55,14 +55,14 @@ cp $DISK2_NAME $DISK4_NAME
 sudo losetup -d $LOOP
 
 
+
 # 设备       启动  起点  末尾  扇区 大小 Id 类型
 # disk2.img1       2048  4095  2048   1M 83 Linux
 # disk2.img2       4096  6143  2048   1M 83 Linux
 # disk2.img3       6144  8191  2048   1M 83 Linux
-# disk2.img4       8192 16383  8192   4M  5 扩展
-# disk2.img5      10240 12287  2048   1M 83 Linux
-# disk2.img6      14336 16383  2048   1M 83 Linux
-
+# disk2.img4       8192 18431 10240   5M  5 扩展
+# disk2.img5      10240 14335  4096   2M 83 Linux
+# disk2.img6      16384 18431  2048   1M 83 Linux
 
 
 # 写boot区，定位到磁盘开头，写1个块：512字节
