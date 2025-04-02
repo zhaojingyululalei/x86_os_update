@@ -90,7 +90,13 @@ typedef struct ide_ctrl_t
     ide_prd_t *prdt;                 // Physical Region Descriptor
     scatter_list_t scatter_list;  // 用于管理DMA缓冲区的分散列表
 } ide_ctrl_t;
-
-int ide_pio_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba);
-int ide_pio_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba);
+// 设备控制命令
+enum device_cmd_t
+{
+    DEV_CMD_SECTOR_START = 1, // 获得设备扇区开始位置 lba
+    DEV_CMD_SECTOR_COUNT,     // 获得设备扇区数量
+    DEV_CMD_SECTOR_SIZE,      // 获得设备扇区大小
+};
+int ide_pio_write(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba);
+int ide_pio_read(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba);
 #endif

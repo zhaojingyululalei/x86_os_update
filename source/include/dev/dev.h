@@ -70,5 +70,5 @@ int dev_write (int devfd, int addr, char * buf, int size,int flag);
 int dev_control (int devfd, int cmd, int arg0, int arg1);
 void dev_close (int devfd,int flag);
 int dev_install(device_type_t type,int major,int minor,const char* name,void* data,dev_ops_t* ops);
-
+void dev_show_all(void);
 #endif

@@ -8,6 +8,7 @@
 #include "printk.h"
 #include "mem/kmalloc.h"
 #include "ipc/mutex.h"
+#include "dev/dev.h"
 
 // 设备树
 static rb_tree_t dev_tree;
@@ -59,8 +60,8 @@ static int compare_key(const void *key, const void *data)
 }
 static void device_print(device_t *s)
 {
-    dbg_info("device name:%s\r\n",
-             s->desc.name);
+    dbg_info("device name:%s,major=%d,minor=%d\r\n",
+             s->desc.name,s->desc.major,s->desc.minor);
 }
 
 void devfs_init(void)
@@ -115,6 +116,10 @@ int dev_install(device_type_t type, int major, int minor, const char *name, void
     return 0;
 }
 
+void dev_show_all(void)
+{
+    rb_tree_inorder(&dev_tree,dev_tree.root,device_print);
+}
 int dev_open(int major, int minor, void *data)
 {
     

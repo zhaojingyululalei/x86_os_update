@@ -569,7 +569,7 @@ static void ide_controler_init(void)
                 if (ide_identify(disk, buf) == EOK)
                 {
                     memset(buf, 0, MEM_PAGE_SIZE);
-                    ide_part_init(disk, buf); //解析磁盘分区
+                    ide_part_init(disk, buf); // 解析磁盘分区
                     dbg_info("disk %s identify ok\r\n", disk->name);
                 }
             }
@@ -579,7 +579,7 @@ static void ide_controler_init(void)
 }
 
 // PIO 方式读取磁盘
-int ide_pio_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+int ide_pio_read(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba)
 {
     ASSERT(count > 0);
 
@@ -631,7 +631,7 @@ int ide_pio_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
 }
 
 // PIO 方式写磁盘
-int ide_pio_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+int ide_pio_write(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba)
 {
     ASSERT(count > 0);
 
@@ -754,7 +754,7 @@ static int ide_stop_dma(ide_ctrl_t *ctrl)
     return EOK;
 }
 // 修改后的UDMA读取函数
-int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+int ide_udma_read(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba)
 {
     int ret = 0;
     ide_ctrl_t *ctrl = disk->ctrl;
@@ -804,7 +804,7 @@ int ide_udma_read(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
     return ret;
 }
 
-int ide_udma_write(ide_disk_t *disk, void *buf, uint8_t count, uint32_t lba)
+int ide_udma_write(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba)
 {
     int ret = EOK;
     ide_ctrl_t *ctrl = disk->ctrl;
@@ -897,6 +897,348 @@ static void pio_read_write_test(void)
     kfree(write_buf);
     kfree(read_buf);
 }
+// 磁盘控制
+static int ide_pio_ioctl(ide_disk_t *disk, int cmd, void *args, int flags)
+{
+    switch (cmd)
+    {
+    case DEV_CMD_SECTOR_START:
+        return 0;
+    case DEV_CMD_SECTOR_COUNT:
+        return disk->total_lba;
+    case DEV_CMD_SECTOR_SIZE:
+        return disk->sector_size;
+    default:
+        dbg_error("device command %d can't recognize!!!", cmd);
+        break;
+    }
+}
+// 分区控制
+static int ide_pio_part_ioctl(ide_part_t *part, int cmd, void *args, int flags)
+{
+    switch (cmd)
+    {
+    case DEV_CMD_SECTOR_START:
+        return part->start;
+    case DEV_CMD_SECTOR_COUNT:
+        return part->count;
+    case DEV_CMD_SECTOR_SIZE:
+        return part->disk->sector_size;
+    default:
+        dbg_error("device command %d can't recognize!!!", cmd);
+        break;
+    }
+}
+#include "dev/dev.h"
+#include "algrithm.h"
+/**
+ * @brief 计算disk的次设备号
+ * @param cidx:第几个控制器
+ * @param didx:第几个磁盘
+ */
+static int disk_get_minor(int cidx, int didx)
+{
+    return (cidx * IDE_DISK_NR + didx);
+}
+/**
+ * @brief 根据次设备号，获取对应的disk结构体
+ */
+static ide_disk_t *minor_get_disk(int minor)
+{
+    int didx = minor % IDE_DISK_NR;
+    int cidx = minor / IDE_DISK_NR;
+
+    // 检查范围
+    if (cidx >= IDE_CTRL_NR || didx >= IDE_DISK_NR)
+    {
+        return NULL; // 非法的次设备号
+    }
+
+    return &controllers[cidx].disks[didx];
+}
+static int ide_disk_open(int devfd, int flag)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_DISK)
+    {
+        dbg_error("major=%d,when open disk device\r\n", major);
+        return -1;
+    }
+
+    ide_disk_t *disk = minor_get_disk(minor);
+    if (!disk)
+    {
+        dbg_error("minor=%d,when open disk device\r\n", minor);
+        return -2;
+    }
+    if (!disk->ctrl)
+    {
+        dbg_error("disk don`t init,don`t have ctrl\r\n");
+        return -3;
+    }
+    dbg_info("open disk %s success\r\n", disk->name);
+    return 0;
+}
+static int ide_disk_read(int devfd, int addr, char *buf, int size)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_DISK)
+    {
+        dbg_error("major=%d,when open disk device\r\n", major);
+        return -1;
+    }
+
+    ide_disk_t *disk = minor_get_disk(minor);
+    size = align_up(size, SECTOR_SIZE);
+    if(size > disk->sectors*SECTOR_SIZE){
+        dbg_error("read out of boundry,read size > disk->sectors\r\n");
+        return -4;
+    }
+    int (*read)(ide_disk_t *, void *, uint32_t, uint32_t) = ide_pio_read;
+    
+    ide_ctrl_t *ctrl = disk->ctrl;
+    if (ctrl->iotype == IDE_TYPE_UDMA)
+    {
+        read = ide_udma_read;
+        //write = ide_udma_write;
+    }
+    int ret  = read(disk,buf,size/SECTOR_SIZE,addr);
+    return ret;
+}
+static int ide_disk_write(int devfd, int addr, char *buf, int size)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_DISK)
+    {
+        dbg_error("major=%d,when open disk device\r\n", major);
+        return -1;
+    }
+
+    ide_disk_t *disk = minor_get_disk(minor);
+    size = align_up(size, SECTOR_SIZE);
+    if(size > disk->sectors*SECTOR_SIZE){
+        dbg_error("write out of boundry,write size > disk->sectors\r\n");
+        return -4;
+    }
+    
+    int (*write)(ide_disk_t *, void *, uint32_t, uint32_t) = ide_pio_write;
+    ide_ctrl_t *ctrl = disk->ctrl;
+    if (ctrl->iotype == IDE_TYPE_UDMA)
+    {
+        //read = ide_udma_read;
+        write = ide_udma_write;
+    }
+    int ret  = write(disk,buf,size/SECTOR_SIZE,addr);
+    return ret;
+}
+static int ide_disk_control(int devfd, int cmd, int arg0, int arg1)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_DISK)
+    {
+        dbg_error("major=%d,when open disk device\r\n", major);
+        return -1;
+    }
+
+    ide_disk_t *disk = minor_get_disk(minor);
+    return ide_pio_ioctl(disk,cmd,arg0,arg1);
+}
+static int ide_disk_close(int devfd)
+{
+    return 0;
+}
+// 设备描述表: 描述一个设备所具备的特性
+dev_ops_t dev_disk_opts = {
+
+    .open = ide_disk_open,
+    .read = ide_disk_read,
+    .write = ide_disk_write,
+    .control = ide_disk_control,
+    .close = ide_disk_close,
+};
+/**
+ * @brief 计算part分区的次设备号
+ * @param cidx:第几个控制器
+ * @param didx:第几个磁盘
+ * @param Pidx:第几个分区
+ */
+static int part_get_minor(int cidx, int didx, int pidx)
+{
+    return (cidx * IDE_DISK_NR + didx) * IDE_PART_NR + pidx;
+}
+/**
+ * @brief 根据次设备号，获取对应的part结构体
+ */
+static ide_part_t *minor_get_part(int minor)
+{
+    int pidx = minor % IDE_PART_NR;
+    minor /= IDE_PART_NR;
+    int didx = minor % IDE_DISK_NR;
+    int cidx = minor / IDE_DISK_NR;
+
+    // 检查范围合法性
+    if (cidx >= IDE_CTRL_NR || didx >= IDE_DISK_NR || pidx >= IDE_PART_NR)
+    {
+        return NULL; // 非法的次设备号
+    }
+
+    return &controllers[cidx].disks[didx].parts[pidx];
+}
+static int disk_part_open(int devfd, int flag)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_PART)
+    {
+        dbg_error("major=%d,when open disk device\r\n", major);
+        return -1;
+    }
+
+    ide_part_t* part = minor_get_part(minor);
+    if(!part){
+        dbg_error("minor=%d,when open disk_part device\r\n", minor);
+        return -2;
+    }
+    if(!part->disk){
+        dbg_error("part don`t init,don`t have disk\r\n");
+        return -3;
+    }
+
+    dbg_info("open disk_part %s success\r\n", part->name);
+
+    return 0;
+}
+static int disk_part_read(int devfd, int addr, char *buf, int size)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_PART)
+    {
+        dbg_error("major=%d,when open disk device\r\n", major);
+        return -1;
+    }
+
+    ide_part_t *part = minor_get_part(minor);
+    size = align_up(size, SECTOR_SIZE);
+    if(size > part->count*SECTOR_SIZE){
+        dbg_error("read out of boundry,read size > part->sectors\r\n");
+        return -4;
+    }
+    int (*read)(ide_disk_t *, void *, uint32_t, uint32_t) = ide_pio_read;
+    
+    ide_ctrl_t *ctrl = part->disk->ctrl;
+    if (ctrl->iotype == IDE_TYPE_UDMA)
+    {
+        read = ide_udma_read;
+    }
+    int ret =  read(part->disk, buf, size/SECTOR_SIZE, part->start + addr);
+    return ret;
+}
+static int disk_part_write(int devfd, int addr, char *buf, int size)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_PART)
+    {
+        dbg_error("major=%d,when open disk device\r\n", major);
+        return -1;
+    }
+
+    ide_part_t *part = minor_get_part(minor);
+    size = align_up(size, SECTOR_SIZE);
+    if(size > part->count*SECTOR_SIZE){
+        dbg_error("write out of boundry,write size > part->sectors\r\n");
+        return -4;
+    }
+    
+    int (*write)(ide_disk_t *, void *, uint32_t, uint32_t) = ide_pio_write;
+    ide_ctrl_t *ctrl = part->disk->ctrl;
+    if (ctrl->iotype == IDE_TYPE_UDMA)
+    {
+        //read = ide_udma_read;
+        write = ide_udma_write;
+    }
+    int ret =  write(part->disk, buf, size/SECTOR_SIZE, part->start + addr);
+    return ret;
+}
+static int disk_part_control(int devfd, int cmd, int arg0, int arg1)
+{
+    device_t *dev = dev_get(devfd);
+    int major = dev->desc.major;
+    int minor = dev->desc.minor;
+
+    if (major != DEV_MAJOR_IDE_PART)
+    {
+        dbg_error("major=%d,when open part device\r\n", major);
+        return -1;
+    }
+
+    ide_part_t *part = minor_get_part(minor);
+    return ide_pio_part_ioctl(part,cmd,arg0,arg1);
+}
+static int disk_part_close(int devfd)
+{
+    return 0;
+}
+// 设备描述表: 描述一个设备所具备的特性
+dev_ops_t dev_part_opts = {
+
+    .open = disk_part_open,
+    .read = disk_part_read,
+    .write = disk_part_write,
+    .control = disk_part_control,
+    .close = disk_part_close,
+};
+
+static void ide_install()
+{
+    
+
+    for (size_t cidx = 0; cidx < IDE_CTRL_NR; cidx++)
+    {
+        ide_ctrl_t *ctrl = &controllers[cidx];
+
+        for (size_t didx = 0; didx < IDE_DISK_NR; didx++)
+        {
+            ide_disk_t *disk = &ctrl->disks[didx];
+            if (!disk->total_lba)
+                continue;
+
+            if (disk->interface == IDE_INTERFACE_ATA)
+            {
+                int dminor = disk_get_minor(cidx, didx);
+                dev_install(DEV_TYPE_BLOCK, DEV_MAJOR_IDE_DISK, dminor, disk->name, NULL, &dev_disk_opts);
+
+                for (size_t i = 0; i < IDE_PART_NR; i++)
+                {
+                    ide_part_t *part = &disk->parts[i];
+                    if (!part->count)
+                        continue;
+                    int pminor = part_get_minor(cidx, didx, i);
+                    dev_install(DEV_TYPE_BLOCK, DEV_MAJOR_IDE_PART, pminor, part->name, NULL, &dev_part_opts);
+                }
+            }
+        }
+    }
+}
 static void dma_read_write_test(void)
 {
     ide_disk_t *disk = &controllers[1].disks[1];
@@ -941,4 +1283,5 @@ void ide_init(void)
 
     ide_controler_init();
     // dma_read_write_test();
+    ide_install();//安装所有磁盘和分区的驱动
 }
