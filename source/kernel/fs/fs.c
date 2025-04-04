@@ -101,14 +101,18 @@ int sys_lseek(int fd, int offset, int whence)
 
 int sys_close(int fd)
 {
-    
+    sys_fsync(fd);
+    return 0;
+}
+/**
+ * @brief 将该文件同步回磁盘
+ */
+int sys_fsync(int fd){
     return 0;
 }
 
-
-
-
+extern void fs_buffer_init(void);
 void fs_init(void)
 {
-    //file_table_init();
+    fs_buffer_init();
 }

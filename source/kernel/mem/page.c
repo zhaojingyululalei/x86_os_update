@@ -100,7 +100,7 @@ int create_one_page(task_t *task, ph_addr_t phaddr, vm_addr_t vmaddr, page_type_
 /**
  * @brief 找一个物理页，如果存在就返回。
  */
-static page_t *find_one_page(ph_addr_t phaddr)
+page_t *find_one_page(ph_addr_t phaddr)
 {
     rb_node_t *node = rb_tree_find_by(&page_tree, phaddr, compare_phaddr);
     page_t *page = NULL;
@@ -194,12 +194,17 @@ static page_owner_t* find_page_owner_by_task(page_t* page,task_t* task){
 int remove_one_page(task_t* task,vm_addr_t vm_addr){
     ASSERT(vm_addr % MEM_PAGE_SIZE == 0);
     irq_state_t state = irq_enter_protection();
-    
+    page_entry_t* page_table = NULL;
+    if(task){
+        page_table = task->page_table;
+    }else{
+        page_table = get_global_page_table();
+    }
     //通过映射，获取物理地址
-    ph_addr_t phaddr = vm_to_ph(task->page_table,vm_addr);
+    ph_addr_t phaddr = vm_to_ph(page_table,vm_addr);
 
     //获取pte结构
-    page_entry_t* pte = get_pte(task->page_table,vm_addr);
+    page_entry_t* pte = get_pte(page_table,vm_addr);
     if(vm_addr >= USR_ENTRY_BASE){
         pte->present = 0;
     }

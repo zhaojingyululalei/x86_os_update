@@ -936,8 +936,17 @@ static int ide_pio_part_ioctl(ide_part_t *part, int cmd, void *args, int flags)
  * @param cidx:第几个控制器
  * @param didx:第几个磁盘
  */
-static int disk_get_minor(int cidx, int didx)
+int disk_get_minor(int cidx, int didx)
 {
+    return (cidx * IDE_DISK_NR + didx);
+}
+//sda
+int disk_get_minor_by_name(const char* name){
+    int len = strlen(name);
+    char disk_name = name[len-1];
+    int disk_idx = disk_name-'a';
+    int cidx = disk_idx / IDE_DISK_NR;
+    int didx = disk_idx %  IDE_DISK_NR;
     return (cidx * IDE_DISK_NR + didx);
 }
 /**
@@ -1074,8 +1083,19 @@ dev_ops_t dev_disk_opts = {
  * @param didx:第几个磁盘
  * @param Pidx:第几个分区
  */
-static int part_get_minor(int cidx, int didx, int pidx)
+int part_get_minor(int cidx, int didx, int pidx)
 {
+    return (cidx * IDE_DISK_NR + didx) * IDE_PART_NR + pidx;
+}
+//sda1
+int part_get_minor_by_name(const char* name){
+    int len = strlen(name);
+    char part_name = name[len-1];
+    char disk_name = name[len-2];
+    int disk_idx = disk_name-'a';
+    int cidx = disk_idx / IDE_DISK_NR;
+    int didx = disk_idx %  IDE_DISK_NR;
+    int pidx = part_name - '1';
     return (cidx * IDE_DISK_NR + didx) * IDE_PART_NR + pidx;
 }
 /**

@@ -30,6 +30,7 @@ typedef struct _page_t{
     list_node_t lnode; //用于分配page_t
 }page_t;
 void page_manager_init(void);
+page_t *find_one_page(ph_addr_t phaddr);
 int record_one_page(task_t *task, ph_addr_t phaddr, vm_addr_t vmaddr, page_type_t type);
 int record_continue_pages(task_t* task,vm_addr_t vmstart,size_t size,page_type_t type);
 int remove_one_page(task_t* task,vm_addr_t vm_addr);

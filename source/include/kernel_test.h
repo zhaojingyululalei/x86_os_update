@@ -18,4 +18,5 @@ extern void ide_test(void);
 extern  void dma_test(void);
 extern void console_test(void);
 extern void tty_test(void);
+extern void buffer_test(void);
 #endif

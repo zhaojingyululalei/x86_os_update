@@ -25,7 +25,7 @@ extern void tty_init(void);
 boot_info_t *os_info;
 static void test(void)
 {
-    ide_test();
+    buffer_test();
     
     
 }

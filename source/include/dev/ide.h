@@ -4,7 +4,8 @@
 #include "ipc/mutex.h"
 #include "ipc/semaphore.h"
 #include "dev/dma.h"
-#define SECTOR_SIZE 512     // 扇区大小
+#include "cpu_cfg.h"
+#define SECTOR_SIZE DISK_SECTOR_SIZE     // 扇区大小
 
 #define IDE_CTRL_NR 2 // 控制器数量，固定为 2
 #define IDE_DISK_NR 2 // 每个控制器可挂磁盘数量，固定为 2
@@ -99,4 +100,8 @@ enum device_cmd_t
 };
 int ide_pio_write(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba);
 int ide_pio_read(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba);
+int disk_get_minor(int cidx, int didx);
+int disk_get_minor_by_name(const char* name);
+int part_get_minor(int cidx, int didx, int pidx);
+int part_get_minor_by_name(const char* name);
 #endif
