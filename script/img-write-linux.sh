@@ -31,18 +31,21 @@ sudo losetup $LOOP --partscan $DISK2_NAME
 ls ${LOOP}p*
 
 # 格式化各个分区为 Minix 文件系统
-sudo mkfs.minix ${LOOP}p1   # 主分区1
-sudo mkfs.minix ${LOOP}p2   # 主分区2
-sudo mkfs.minix ${LOOP}p3   # 主分区3
-sudo mkfs.minix ${LOOP}p5   # 逻辑分区1
-sudo mkfs.minix ${LOOP}p6   # 逻辑分区2
+sudo mkfs.minix -1 -n 14 ${LOOP}p1   # 主分区1
+sudo mkfs.minix -1 -n 14 ${LOOP}p2   # 主分区2
+sudo mkfs.minix -1 -n 14 ${LOOP}p3   # 主分区3
+sudo mkfs.minix -1 -n 14 ${LOOP}p5   # 逻辑分区1
+sudo mkfs.minix -1 -n 14 ${LOOP}p6   # 逻辑分区2
 
+# sudo rm *.txt -f
+#     echo "part root direcotry file..." > /mnt/hello.txt
+#    sudo chown ${USER} /mnt/hello.txt
 # 挂载各个分区，创建目录并写入测试文件
 for i in 1 2 3 5 6; do
     sudo mount ${LOOP}p$i /mnt
     sudo rm -rf /mnt/test_dir
-    sudo mkdir /mnt/test_dir
-    sudo chown ${USER} /mnt/test_dir
+    sudo chown ${USER} /mnt
+    mkdir /mnt/test_dir
     echo "Test file for partition $i" > /mnt/test_dir/test.txt
     sudo chown ${USER} /mnt/test_dir/test.txt
     sudo umount /mnt

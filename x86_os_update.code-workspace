@@ -92,7 +92,9 @@
 			"queue": "c",
 			"stdexcept": "c",
 			"streambuf": "c",
-			"typeinfo": "c"
+			"typeinfo": "c",
+			"buffer.h": "c",
+			"minix_fs.h": "c"
 		}
 	}
 }

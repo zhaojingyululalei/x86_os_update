@@ -112,7 +112,9 @@ int sys_fsync(int fd){
 }
 
 extern void fs_buffer_init(void);
+extern void minix_super_init(void);
 void fs_init(void)
 {
     fs_buffer_init();
+    minix_super_init();
 }

@@ -352,7 +352,7 @@ task_t *create_task(addr_t entry, const char *name, uint32_t priority, task_attr
     task->esp = stack_top;
     task->ticks = task->priority = priority;
     task->pid = allocate_id(&task_manager.pid_pool);
-
+    task->uid = task->gid = task->pid+1000; 
     // 创建进程页表，并拷贝内核页表(记得写cr3，任务才能用自己的页表)
     task->page_table = (page_entry_t *)mm_bitmap_alloc_page();
     copy_kernel_pdt(task->page_table);
@@ -615,6 +615,8 @@ int sys_fork(void)
     // test_addr = vm_to_ph(child->page_table,0xeffef000);
     child->pid = allocate_id(&task_manager.pid_pool);
     child->ppid = parent->pid;
+    child->uid = parent->uid;
+    child->gid = parent->gid;
     // 将子进程加入父进程的child_list中
     list_insert_last(&parent->child_list, &child->child_node);
     // 将子进程加入到taskmanger的tasks中

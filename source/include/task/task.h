@@ -58,6 +58,8 @@ typedef struct _task_t
     list_t *list;            // 任务当前所在队列
     list_t child_list;       // 存放所有子进程
     int err_num;             // 错误号，每个线程独有
+    int uid;
+    int gid;
     int pid;                 // 每个任务的pid都不同
     int ppid;                // 父进程pid
     int status;              // 高8位存放信号信息，低8位存退出码

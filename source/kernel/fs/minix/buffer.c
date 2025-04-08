@@ -122,7 +122,7 @@ void release_buffer(buffer_t *buf)
 /**
  * @brief 读取磁盘内容到缓冲  注：一个缓冲存储8个连续扇区 4KB 即4个文件块
  * @param blk:这个块号指的是文件系统块号 2个扇区
- * @param modify:获取这个缓冲块的目的是啥？是要修改数据吗
+ * @param modify:获取这个缓冲块的目的是啥？是要修改数据吗，还是仅仅读取
  */
 buffer_t *fs_read_to_buffer(int major, int minor, int blk, bool modify)
 {
