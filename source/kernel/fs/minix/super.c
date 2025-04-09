@@ -1,6 +1,7 @@
 #include "fs/minix_fs.h"
 #include "fs/buffer.h"
 #include "printk.h"
+#include "mem/kmalloc.h"
 static super_block_t root;
 /**
  * @brief 获取某个分区的超级块
@@ -40,6 +41,10 @@ static void mount_root(void){
         dbg_error("minix fs root super block get failz!!!\r\n");
         return;
     }
+    inode_t* iroot = (inode_t*)kmalloc(sizeof(inode_t));
+    get_dev_inode(iroot,root.major,root.minor,1);
+    root.iroot = iroot;
+    root.imount = root.iroot;
     return;
 }
 void minix_super_init(void){

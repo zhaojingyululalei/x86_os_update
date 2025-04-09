@@ -1,7 +1,8 @@
 
 #include "fs/minix_fs.h"
 #include "printk.h"
-
+#include "fs/buffer.h"
+#include "string.h"
 /**
  * @brief 分配一个空闲数据块，返回块号,已经考虑了first_datablk
  * @param major 主设备号
@@ -37,6 +38,8 @@ int minix_dblk_alloc(int major, int minor) {
                     }
                     // 标记该块为已使用
                     sup_blk.zone_map[i] |= (1 << j);
+                    buffer_t* buf = fs_read_to_buffer(major,minor,blk,true);
+                    memset(buf->data,0,BLOCK_SIZE);
                     return blk; // 返回分配的数据块号
                 }
             }
@@ -121,6 +124,9 @@ int minix_inode_alloc(int major, int minor) {
 
                     // 标记该i节点为已使用
                     sup_blk.inode_map[i] |= (1 << j);
+                    inode_t t;
+                    get_dev_inode(&t,major,minor,ino);
+                    memset(t.data,0,sizeof(minix_inode_t));
                     return ino; // 返回分配的i节点号
                 }
             }

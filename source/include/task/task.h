@@ -9,6 +9,7 @@
 #include "irq/traps.h"
 #include "signal.h"
 #include "mem/buddy_system.h"
+#include "fs/minix_fs.h"
 #define TASK_LIMIT_CNT 512
 #define TASK_PRIORITY_DEFAULT 1
 #define TASK_PID_START 0
@@ -89,6 +90,8 @@ typedef struct _task_t
     list_node_t pool_node; // 用于快速分配释放task_t结构
     bool paused;
     bool stop;
+    inode_t* ipwd;  //当前所在目录
+    inode_t* iroot; //当前所在根目录
 } task_t;
 
 typedef struct task_frame_t

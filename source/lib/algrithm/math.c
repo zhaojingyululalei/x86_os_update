@@ -1,4 +1,4 @@
-
+#include "types.h"
 
 unsigned int power(unsigned int base, unsigned int exponent) {
     unsigned int result = 1;
@@ -16,3 +16,6 @@ unsigned int power(unsigned int base, unsigned int exponent) {
 
     return result;
 }
+
+
+

@@ -10,6 +10,7 @@
 #include "irq/irq.h"
 #include "errno.h"
 #include "mem/page.h"
+#include "elf.h"
 static task_t task_buf[TASK_LIMIT_CNT];
 static list_t task_pool;
 /**
@@ -272,6 +273,8 @@ void jmp_to_usr_mode(void)
     tss->cs = SELECTOR_USR_CODE_SEG;
     tss->eip = init_task_entry;
 
+    task->ipwd = get_root_inode();
+    task->iroot = get_root_inode();
     // 记录所有page_t为匿名页
     task_record_pages(task);
 
@@ -617,6 +620,8 @@ int sys_fork(void)
     child->ppid = parent->pid;
     child->uid = parent->uid;
     child->gid = parent->gid;
+    child->iroot = parent->iroot;
+    child->ipwd = parent->ipwd;
     // 将子进程加入父进程的child_list中
     list_insert_last(&parent->child_list, &child->child_node);
     // 将子进程加入到taskmanger的tasks中
@@ -784,6 +789,7 @@ static ph_addr_t load_app_elf(task_t *task, const char *path)
 
     // 检查elf文件格式
     // 检查magic
+    
     if ((elf_hdr.e_ident[0] != ELF_MAGIC) || (elf_hdr.e_ident[1] != 'E') || (elf_hdr.e_ident[2] != 'L') || (elf_hdr.e_ident[3] != 'F'))
     {
         dbg_error("check elf indent failed.\r\n");

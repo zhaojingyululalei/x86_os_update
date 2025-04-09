@@ -1,12 +1,12 @@
 
 all:
-	make -C source/boot
-	make -C source/loader
-	make -C source/lib/string
-	make -C source/lib/algrithm
-	make -C source/lib/std
-	make -C source/kernel
-	make -C source/app/shell
+	make -C source/boot -j12
+	make -C source/loader -j12
+	make -C source/lib/string -j12
+	make -C source/lib/algrithm -j12
+	make -C source/lib/std -j12 
+	make -C source/kernel -j12
+	make -C source/app/shell -j12
 
 clean:
 	-rm ./image/*.img 
