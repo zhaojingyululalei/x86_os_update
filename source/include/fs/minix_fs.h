@@ -69,4 +69,12 @@ super_block_t* get_root_super_block(void);
 int get_dev_inode(inode_t* inode, int major, int minor, int idx) ;
 inode_t* get_root_inode(void);
 int inode_get_block(inode_t* inode, int fblock, bool create);
+
+int read_content_from_izone(inode_t* inode, char* buf, int buf_size, int whence, int read_size);
+int write_content_to_izone(inode_t* inode, const char* buf, int buf_size, int whence, int write_size);
+
+
+
+
+int print_mode(uint16_t mode);
 #endif

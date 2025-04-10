@@ -92,6 +92,7 @@ typedef struct _task_t
     bool stop;
     inode_t* ipwd;  //当前所在目录
     inode_t* iroot; //当前所在根目录
+    uint16_t umask;
 } task_t;
 
 typedef struct task_frame_t
@@ -140,5 +141,5 @@ int sys_getppid(void);
 int sys_wait(int *status);
 void sys_exit(int status);
 int sys_execve(const char *path, char *const *argv, char *const *env);
-
+uint16_t sys_umask(uint16_t mask);
 #endif

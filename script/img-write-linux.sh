@@ -50,6 +50,26 @@ for i in 1 2 3 5 6; do
     sudo chown ${USER} /mnt/test_dir/test.txt
     sudo umount /mnt
 done
+# for i in 1 2 3 5 6; do
+#     sudo mount ${LOOP}p$i /mnt
+#     sudo rm -rf /mnt/test_dir
+#     sudo chown ${USER} /mnt
+    
+#     # 创建测试目录
+#     mkdir /mnt/test_dir
+    
+#     # 创建 5KB 的测试文件（填充随机数据）
+#     dd if=/dev/urandom of=/mnt/test_dir/test.bin bs=1024 count=5
+    
+#     # 检查文件大小（可选）
+#     #ls -lh /mnt/test_dir/test.bin
+    
+#     # 确保权限正确
+#     sudo chown ${USER} /mnt/test_dir/test.bin
+    
+#     # 卸载分区
+#     sudo umount /mnt
+# done
 
 # 将 disk2.img 复制到 disk3.img 和 disk4.img
 cp $DISK2_NAME $DISK3_NAME

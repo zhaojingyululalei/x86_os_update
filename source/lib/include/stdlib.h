@@ -99,6 +99,8 @@ int sigpending(sigset_t* set);
 int pause(void);
 void* malloc(size_t size);
 void free(void* ptr);
+int execve(const char *path, char *const *argv, char *const *env);
+uint16_t umask(uint16_t mask);
 static inline void sigreturn(void)
 {
     asm volatile(

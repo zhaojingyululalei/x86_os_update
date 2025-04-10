@@ -1,5 +1,8 @@
+
 #include "stdlib.h"
 #include "string.h"
+
+
 #include "syscall/syscall.h"
 #include "task/signal.h"
 #include "mem/malloc.h"
@@ -202,6 +205,25 @@ int close(int fd){
     ret = sys_call(&arg);
     return ret;
 }
+int execve(const char *path, char *const *argv, char *const *env){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_execve;
+    arg.arg0 = path;
+    arg.arg1 = argv;
+    arg.arg2 = env;
+    ret = sys_call(&arg);
+    return ret;
+}
+uint16_t umask(uint16_t mask){
+    int ret;
+    syscall_args_t arg;
+    arg.id = SYS_umask;
+    arg.arg0 = mask;
+    ret = sys_call(&arg);
+    return ret;
+}
+
 void printf(char *fmt, ...)
 {
 #define PRINT_MAX_STR_BUF_SIZE 512

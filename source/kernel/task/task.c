@@ -275,6 +275,7 @@ void jmp_to_usr_mode(void)
 
     task->ipwd = get_root_inode();
     task->iroot = get_root_inode();
+    task->umask = 022;
     // 记录所有page_t为匿名页
     task_record_pages(task);
 
@@ -622,6 +623,7 @@ int sys_fork(void)
     child->gid = parent->gid;
     child->iroot = parent->iroot;
     child->ipwd = parent->ipwd;
+    child->umask = parent->umask;
     // 将子进程加入父进程的child_list中
     list_insert_last(&parent->child_list, &child->child_node);
     // 将子进程加入到taskmanger的tasks中
@@ -789,7 +791,6 @@ static ph_addr_t load_app_elf(task_t *task, const char *path)
 
     // 检查elf文件格式
     // 检查magic
-    
     if ((elf_hdr.e_ident[0] != ELF_MAGIC) || (elf_hdr.e_ident[1] != 'E') || (elf_hdr.e_ident[2] != 'L') || (elf_hdr.e_ident[3] != 'F'))
     {
         dbg_error("check elf indent failed.\r\n");
@@ -958,4 +959,11 @@ int sys_execve(const char *path, char *const *argv, char *const *env)
     sysenter_frame->ecx = (uint32_t)cr0_frame;
     irq_leave_protection(state);
     return 0;
+}
+uint16_t sys_umask(uint16_t mask)
+{
+    task_t* task = cur_task();
+    uint16_t old = task->umask;
+    task->umask = mask & 0777;
+    return old;
 }

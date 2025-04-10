@@ -41,5 +41,5 @@ typedef int (*syscall_handler_t)(uint32_t arg0, uint32_t arg1, uint32_t arg2, ui
 #define SYS_lseek           20
 #define SYS_close           21
 #define SYS_execve          22
-
+#define SYS_umask           23
 #endif

@@ -95,7 +95,8 @@
 			"typeinfo": "c",
 			"buffer.h": "c",
 			"minix_fs.h": "c",
-			"blk_cfg.h": "c"
+			"blk_cfg.h": "c",
+			"elf.h": "c"
 		}
 	}
 }

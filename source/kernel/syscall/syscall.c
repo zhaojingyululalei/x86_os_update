@@ -34,6 +34,7 @@ static const syscall_handler_t sys_table[] = {
     [SYS_lseek] = (syscall_handler_t)sys_lseek,
     [SYS_close] = (syscall_handler_t)sys_close,
     [SYS_execve] = (syscall_handler_t)sys_execve,
+    [SYS_umask] = (syscall_handler_t)sys_umask,
 };
 
 int syscall_resolve(syscall_args_t* args)
