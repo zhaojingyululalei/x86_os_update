@@ -74,7 +74,12 @@ int read_content_from_izone(inode_t* inode, char* buf, int buf_size, int whence,
 int write_content_to_izone(inode_t* inode, const char* buf, int buf_size, int whence, int write_size);
 
 
+int find_entry(inode_t* inode,const char* name,minix_dentry_t* entry);
+int add_entry(inode_t *inode, const char *name);
+int delete_entry_not_dir(inode_t* inode, const char* name) ;
+int delete_entry_dir(inode_t* inode, const char* name, bool recursion);
 
 
 int print_mode(uint16_t mode);
+void print_entrys(inode_t* inode);
 #endif

@@ -25,7 +25,7 @@ static void inode_opts_test(void)
 static char read_buf[READ_BUF_SIZE];
 #define WRITE_BUF_SIZE (1024*5)
 static char write_buf[READ_BUF_SIZE];
-void inode_test(void)
+void inode_read_write_test(void)
 {
     inode_t inode;
     get_dev_inode(&inode, 7, 16, 3);
@@ -99,4 +99,20 @@ void inode_test(void)
             dbg_info("failed to add directory entry!\r\n");
         }
     }
+}
+
+void inode_test(void)
+{
+    inode_t inode;
+    get_dev_inode(&inode, 7, 16, 1);
+    minix_inode_t *inode_data = inode.data;
+    print_mode(inode.data->mode);
+    dbg_info("file size:%d\r\n", inode_data->size);
+    minix_dentry_t* entry = kmalloc(sizeof(minix_dentry_t));
+    int ret= find_entry(&inode,"test_dir",entry);
+    dbg_info("find entry:%s\r\n",entry->name);
+
+    delete_entry_dir(&inode,entry->name,true);
+    print_entrys(&inode);
+
 }

@@ -46,10 +46,14 @@ for i in 1 2 3 5 6; do
     sudo rm -rf /mnt/test_dir
     sudo chown ${USER} /mnt
     mkdir /mnt/test_dir
+    mkdir /mnt/test_dir/test2
     echo "Test file for partition $i" > /mnt/test_dir/test.txt
-    sudo chown ${USER} /mnt/test_dir/test.txt
+    echo "Test file for partition $i" > /mnt/test_dir/test2/test2.txt
+    
     sudo umount /mnt
 done
+#sudo chown ${USER} /mnt/test_dir/test.txt
+
 # for i in 1 2 3 5 6; do
 #     sudo mount ${LOOP}p$i /mnt
 #     sudo rm -rf /mnt/test_dir

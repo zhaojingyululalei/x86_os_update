@@ -53,7 +53,7 @@ int minix_dblk_alloc(int major, int minor) {
  * @brief 释放一个数据块,已经考虑了first_datablk
  * @param major 主设备号
  * @param minor 次设备号
- * @param blk 要释放的数据块号
+ * @param blk 要释放的数据块号(就是zone里面的块号，是整个分区的相对块号，不是位图的)
  * @return 成功返回0，失败返回-1
  */
 int minix_dblk_free(int major, int minor, int blk) {
