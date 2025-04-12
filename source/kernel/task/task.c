@@ -553,6 +553,42 @@ static void copy_parent_pdt(task_t *child, task_t *parent)
 }
 
 /**
+ * @brief 为指定的file分配一个新的文件id
+ */
+int task_alloc_fd (file_t * file) {
+    task_t * task = cur_task();
+
+    for (int i = 0; i < TASK_OFILE_NR; i++) {
+        file_t * p = task->file_table[i];
+        if (p == (file_t *)0) {
+            task->file_table[i] = file;
+            return i;
+        }
+    }
+
+    return -1;
+}
+/**
+ * @brief 获取当前进程指定的文件描述符
+ */
+file_t * task_file (int fd) {
+    if ((fd >= 0) && (fd < TASK_OFILE_NR)) {
+        file_t * file = cur_task()->file_table[fd];
+        return file;
+    }
+
+    return (file_t *)0;
+}
+
+/**
+ * @brief 移除任务中打开的文件fd
+ */
+void task_remove_fd (int fd) {
+    if ((fd >= 0) && (fd < TASK_OFILE_NR)) {
+        cur_task()->file_table[fd] = (file_t *)0;
+    }
+}
+/**
  * @brief 复制父进程,创建子进程
  */
 extern void sys_handler_exit(void); // 系统调用返回
@@ -967,3 +1003,4 @@ uint16_t sys_umask(uint16_t mask)
     task->umask = mask & 0777;
     return old;
 }
+

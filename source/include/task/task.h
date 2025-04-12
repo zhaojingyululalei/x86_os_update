@@ -10,12 +10,14 @@
 #include "signal.h"
 #include "mem/buddy_system.h"
 #include "fs/minix_fs.h"
+#include "fs/file.h"
 #define TASK_LIMIT_CNT 512
 #define TASK_PRIORITY_DEFAULT 1
 #define TASK_PID_START 0
 #define TASK_PID_END (TASK_PID_START + TASK_LIMIT_CNT - 1)
 #define STACK_MAGIC "magic"
 #define STACK_MAGIC_LEN 5
+#define TASK_OFILE_NR				128			// 最多支持打开的文件数量
 struct _task_t;
 typedef struct _task_manager_t
 {
@@ -93,6 +95,7 @@ typedef struct _task_t
     inode_t* ipwd;  //当前所在目录
     inode_t* iroot; //当前所在根目录
     uint16_t umask;
+    file_t * file_table[TASK_OFILE_NR];	// 任务最多打开的文件数量
 } task_t;
 
 typedef struct task_frame_t
@@ -132,6 +135,11 @@ task_t *create_kernel_task(addr_t entry, const char *name, uint32_t priority, ta
 void task_list_debug(void);
 int task_get_errno(void);
 int task_collect(task_t *task);
+
+int task_alloc_fd (file_t * file);
+file_t * task_file (int fd);
+void task_remove_fd (int fd);
+
 
 void sys_sleep(uint32_t ms);
 void sys_yield(void);

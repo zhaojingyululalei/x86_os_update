@@ -4,10 +4,14 @@
 #include "dev/serial.h"
 #include "cpu_instr.h"
 #include "printk.h"
+#include "fs/file.h"
+#include "fs/path.h"
+#include "task/task.h"
+#include "task/sche.h"
 #define DISK_SECTOR_SIZE 512
 uint8_t tmp_app_buffer[512 * 1024];
 uint8_t *tmp_pos;
-int shell_fd = 9;
+#define SHELL_FD    1024
 
 /**
  * 使用LBA48位模式读取磁盘
@@ -61,18 +65,24 @@ int sys_open(const char *path, int flags, uint32_t mode)
     {
         read_disk(10240, 512 * 1024/ 512, tmp_app_buffer);
         tmp_pos = tmp_app_buffer;
-        return shell_fd;
+        return SHELL_FD;
     }
-    else{
-        dbg_error("unkown file:%s\r\n",path);
-    }
+    // 分配文件描述符链接
+	file_t * file = file_alloc();
+    int fd = task_alloc_fd(file);
+
+
+	if (!file) {
+		return -1;
+	}
+
     
     return 0;
 }
 
 int sys_read(int fd, char *buf, int len)
 {
-    if (fd == shell_fd)
+    if (fd == SHELL_FD)
     {
         memcpy(buf, tmp_pos, len);
         tmp_pos += len;
@@ -92,7 +102,7 @@ int sys_write(int fd,const char* buf,size_t len){
 }
 int sys_lseek(int fd, int offset, int whence)
 {
-    if (fd == shell_fd)
+    if (fd == SHELL_FD)
     {
         tmp_pos = tmp_app_buffer + offset;
     }
@@ -111,10 +121,70 @@ int sys_fsync(int fd){
     return 0;
 }
 
+
+int sys_mkdir(const char* path,uint16_t mode)
+{
+    task_t* cur = cur_task();
+    int ret;
+    PathParser *parse = path_parser_init(path);
+    char* parent_name = path_parser_next(parse);
+    inode_t* parent_inode = NULL;
+    if(is_rootdir(parent_name))
+    {
+        parent_inode = get_root_inode();
+    }
+    else{
+        parent_inode = cur->ipwd;
+    }
+    char* child_name;
+    do
+    {
+        child_name =  path_parser_next(parse);
+        minix_dentry_t dentry;
+        ret = find_entry(parent_inode,child_name,&dentry);
+        if(ret < 0)
+        {
+            if(is_parse_finish(parse))
+            {
+                //解析完成了，就可以创建目录了
+                add_entry(parent_inode,child_name);
+                //然后在这个目录下创建.和..
+                dbg_warning("need more code to add . and .. dir\r\n");
+            }else{
+                //解析没完成，该child_name仅仅是中间目录，那就报错
+                dbg_error("can`t find dir %s\r\n",child_name);
+                return -1;
+            }
+        }else{
+            //找到就继续解析
+            inode_t next_parent;
+            if(dentry.nr==1)
+            {
+                //nr==1表示该目录已经被其他设备挂载
+                //找该目录对应的inode，需要去其他设备里找对应的根目录inode
+                dbg_warning("need check mount point,need more code here\r\n");
+                ASSERT(dentry.nr!=1);
+            }else{
+                ret = get_dev_inode(&next_parent,parent_inode->major,parent_inode->minor,dentry.nr);
+                ASSERT(ret >=0);
+            }
+            //更新父目录
+            parent_inode = &next_parent;
+        }
+
+    } while (child_name!=NULL);
+    
+}
+int sys_rmdir(const char* path)
+{
+
+}
 extern void fs_buffer_init(void);
 extern void minix_super_init(void);
+extern void file_table_init(void);
 void fs_init(void)
 {
     fs_buffer_init();
     minix_super_init();
+    file_table_init();
 }

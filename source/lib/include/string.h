@@ -18,6 +18,6 @@ int vsprintf(char * buffer, const char * fmt, va_list args);
 int vsnprintf(char * buffer, int buf_len,const char * fmt, va_list args);
 char* strchr(const char *str, int c) ;
 char* strtok(char *str, const char *delim) ;
-
+void strcat(char *dest, const char *src);
 
 #endif

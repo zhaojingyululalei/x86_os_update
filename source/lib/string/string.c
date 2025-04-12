@@ -39,7 +39,23 @@ int strcmp(const char *s1, const char *s2) {
     }
     return (unsigned char)s1[i] - (unsigned char)s2[i];
 }
+/**拼接 */
+void strcat(char *dest, const char *src) {
+    // 找到 dest 字符串的末尾（'\0'）
+    while (*dest) {
+        dest++;  // 移动到 dest 的末尾
+    }
 
+    // 将 src 字符串的字符一个一个地复制到 dest
+    while (*src) {
+        *dest = *src;
+        dest++;
+        src++;
+    }
+
+    // 最后加上 '\0' 字符，表示字符串结束
+    *dest = '\0';
+}
 // 字符串长度函数 strlen
 int strlen(const char *str) {
     int len = 0;

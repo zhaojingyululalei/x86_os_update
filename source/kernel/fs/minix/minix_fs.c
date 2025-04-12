@@ -1,9 +1,12 @@
-#include "fs/minix_fs.h"
-#include "fs/buffer.h"
-#include "dev/dev.h"
-#include "dev/ide.h"
+#include "fs/file.h"
 #include "string.h"
+#include "task/task.h"
+#include "task/sche.h"
+#include "fs/inode.h"
+int minix_open (inode_t *dir, char *name, int flags, int mode)
+{
+    
 
 
-
+}
 
