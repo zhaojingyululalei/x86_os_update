@@ -23,9 +23,7 @@ int minix_mkdir (char *path, int mode)
     }
 
     // 获取新目录的名称
-    char* dirname = path_basename(path);
-    char dir_name[MINIX1_NAME_LEN];
-    strcpy(dir_name,dirname);
+    char* dir_name = path_basename(path);
     if (!dir_name) {
         dbg_error("Invalid directory name\r\n");
         return -1;

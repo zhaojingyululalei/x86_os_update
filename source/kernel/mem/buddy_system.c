@@ -118,8 +118,13 @@ static int bucket_compare(const void *a, const void *b)
 {
     int a_capacity = ((bucket_t *)a)->capacity;
     int b_capacity = ((bucket_t *)b)->capacity;
+    if(a_capacity != b_capacity)
+    {
+        return a_capacity - b_capacity;
+    }
+    return ((bucket_t *)a)->addr - ((bucket_t *)b)->addr;
 
-    return a_capacity - b_capacity;
+    
 }
 static int zone_compare(const void *a, const void *b)
 {
@@ -183,17 +188,48 @@ static void zone_print(buddy_zone_t *zone)
 /**
  * @brief 获取某个桶的兄弟桶
  */
-static bucket_t* fix_get_buddy(buddy_system_t* buddy,bucket_t* bucket){
-    rb_node_t *node =  rb_tree_find_by(&buddy->tree,bucket->capacity,bucket_find_by_capacity);
-    bucket_t* buddy_bucket;
-    if(node==buddy->tree.nil){
-        buddy_bucket = NULL;
-    }else{
-        buddy_bucket = rb_node_parent(node,bucket_t,rbnode);
-        ASSERT(buddy_bucket->state == BUCKET_STATE_FREE); //存放在树上的桶，全部是空闲的
-    }
-    return buddy_bucket;
+// static bucket_t* fix_get_buddy(buddy_system_t* buddy,bucket_t* bucket){
     
+//     rb_node_t *node =  rb_tree_find_by(&buddy->tree,bucket->capacity,bucket_find_by_capacity);
+//     bucket_t* buddy_bucket;
+//     if(node==buddy->tree.nil){
+//         buddy_bucket = NULL;
+//     }else{
+//         buddy_bucket = rb_node_parent(node,bucket_t,rbnode);
+//         ASSERT(buddy_bucket->state == BUCKET_STATE_FREE); //存放在树上的桶，全部是空闲的
+//     }
+//     return buddy_bucket;
+    
+// }
+static bucket_t* fix_get_buddy(buddy_system_t* buddy, bucket_t* bucket) {
+    if (!buddy || !bucket) {
+        return NULL;
+    }
+
+    // 计算兄弟桶的地址
+    addr_t buddy_addr;
+    if ((bucket->addr - buddy->start) % (2 * bucket->capacity) == 0) {
+        // 当前桶在前，兄弟桶在后
+        buddy_addr = bucket->addr + bucket->capacity;
+    } else {
+        // 当前桶在后，兄弟桶在前
+        buddy_addr = bucket->addr - bucket->capacity;
+    }
+
+    // 在红黑树中查找兄弟桶
+    rb_node_t* node = buddy->tree.root;
+    while (node != buddy->tree.nil) {
+        bucket_t* current_bucket = node_get_bucket(node);
+        if (current_bucket->addr == buddy_addr && current_bucket->capacity == bucket->capacity) {
+            return current_bucket; // 找到兄弟桶
+        } else if (current_bucket->addr < buddy_addr) {
+            node = node->right;
+        } else {
+            node = node->left;
+        }
+    }
+
+    return NULL; // 没有找到兄弟桶
 }
 static bucket_t* dynamic_get_buddy(buddy_system_t* buddy,bucket_t* bucket){
     size_t capacity = bucket->capacity;
@@ -321,7 +357,7 @@ static void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
         rb_tree_insert(&buddy->tree, new_bucket);
     }
     
-    //rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
+   // rb_tree_inorder(&buddy->tree, &buddy->tree.root, bucket_print);
 
     // 记录桶信息
     buddy_alloc_head_t *header = (buddy_alloc_head_t *)bucket->addr;
@@ -339,13 +375,23 @@ static void buddy_system_free(buddy_system_t *buddy, void *addr)
 {
     if (!buddy || !addr)
         return;
-
+    
     // 找到对应的 `bucket`
     buddy_alloc_head_t *header = (buddy_alloc_head_t *)((addr_t)addr - sizeof(buddy_alloc_head_t));
     bucket_t *bucket = header->bucket;
     bucket->state = BUCKET_STATE_FREE;
-
     bucket_t *buddy_bucket = fix_get_buddy(buddy,bucket);
+    if(!buddy_bucket)
+    {
+        return;
+    }
+    else{
+        int a = 10;
+    }
+    // if(bucket->capacity <1024)
+    // {
+    //     return;
+    // }
     // **合并逻辑**
     while (buddy_bucket && buddy_bucket->state == BUCKET_STATE_FREE)
     {
