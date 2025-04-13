@@ -54,11 +54,12 @@ inode_t* named(const char* path);
 //inode读写
 int read_content_from_izone(inode_t* inode, char* buf, int buf_size, int whence, int read_size);
 int write_content_to_izone(inode_t* inode, const char* buf, int buf_size, int whence, int write_size);
-int inode_truncate(inode_t* inode, uint32_t new_size) ;
+
 
 //目录增删改查
 int find_entry(inode_t* inode,const char* name,minix_dentry_t* entry);
-int add_entry(inode_t *inode, const char *name);
+int add_entry(inode_t *inode, const char *name,int ino);
+int delete_entry(inode_t *inode, const char *name);
 int delete_entry_not_dir(inode_t* inode, const char* name) ;
 int delete_entry_dir(inode_t* inode, const char* name, bool recursion);
 
@@ -69,4 +70,6 @@ void print_entrys(inode_t* inode);
 
 int minix_mkdir (char *path, int mode);
 int minix_rmdir(const char* path);
+int minix_link(const char *old_path, const char *new_path);
+int minix_unlink(const char *path);
 #endif

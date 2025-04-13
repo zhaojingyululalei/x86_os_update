@@ -122,6 +122,7 @@ static void show_all_inode(void)
     ls_inode(&inode);
     tree_inode(&inode,0);
 }
+#include "fs/fs.h"
 static void inode_entry_test(void)
 {
     inode_t inode;
@@ -135,10 +136,14 @@ static void inode_entry_test(void)
     minix_rmdir("/test_dir/test2");
     ls_inode(&inode);
     //show_all_inode();
-
+    inode_open("/test_dir/hello.txt",O_CREAT,0777);
+    ls_inode(&inode);
+    minix_unlink("/test_dir/hello.txt");
+    ls_inode(&inode);
 }
 void inode_test(void)
 {
+   
     // 不需要规范化的路径
     ASSERT(strcmp(path_normalize("/test_dirtest2test2.txt"), "/test_dirtest2test2.txt") == 0);
     ASSERT(strcmp(path_normalize("filename.txt"), "filename.txt") == 0);

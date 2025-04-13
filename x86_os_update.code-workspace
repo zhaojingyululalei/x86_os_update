@@ -96,7 +96,8 @@
 			"buffer.h": "c",
 			"minix_fs.h": "c",
 			"blk_cfg.h": "c",
-			"elf.h": "c"
+			"elf.h": "c",
+			"inode.h": "c"
 		}
 	}
 }

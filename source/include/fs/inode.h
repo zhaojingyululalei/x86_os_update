@@ -19,6 +19,7 @@ typedef struct _inode_t
     int major;
     int minor; //设备号
     int idx;//inode bitmap下标
+    int ref;
     time_t atime; // 访问时间
     time_t mtime; // 修改时间
     time_t ctime; // 创建时间
@@ -27,4 +28,6 @@ typedef struct _inode_t
 void stat_inode(inode_t* inode);
 void ls_inode(inode_t* inode);
 void tree_inode(inode_t* inode, int level);
+inode_t *inode_open(const char *path, int flag, int mode);
+int inode_truncate(inode_t* inode, uint32_t new_size) ;
 #endif

@@ -43,9 +43,9 @@ int find_entry(inode_t *inode, const char *name, minix_dentry_t *entry)
 }
 /**
  * @brief 添加一条entry
- * @return 返回新创建的inode的 nr
+ * @return 成功返回0
  */
-int add_entry(inode_t *inode, const char *name)
+int add_entry(inode_t *inode, const char *name,int ino)
 {
     uint16_t mode = inode->data->mode;
     // 如果不是目录，找不了
@@ -58,8 +58,8 @@ int add_entry(inode_t *inode, const char *name)
     int entry_nr = inode->data->size / sizeof(minix_dentry_t);
     int whence = entry_nr * sizeof(minix_dentry_t);
     strncpy(entry->name, name, strlen(name));
-    entry->nr = minix_inode_alloc(inode->major, inode->minor);
-
+    entry->nr = ino;
+    //添加目录项
     int ret = write_content_to_izone(inode,entry,sizeof(minix_dentry_t),whence,sizeof(minix_dentry_t));
     if(ret < 0)
     {
@@ -68,8 +68,43 @@ int add_entry(inode_t *inode, const char *name)
         return -2;
     }
     kfree(entry);
-    return entry->nr;
+    return 0;
 
+}
+/**
+ * @brief 删除一条目录项（单纯的删除，啥都不处理）
+ */
+int delete_entry(inode_t *inode, const char *name)
+{
+    int ret = find_entry(inode, name, NULL);
+    if(ret < 0)
+    {
+        dbg_error("Entry not found\r\n");
+        return -1;
+    }
+    // 从目录中删除条目
+    int entry_size = sizeof(minix_dentry_t);
+    int entry_count = inode->data->size / entry_size;
+    if (ret == entry_count - 1) {
+    // 如果是最后一个条目，直接截断
+        inode->data->size -= entry_size;
+    } 
+    // 否则用最后一个条目覆盖
+    else {
+        minix_dentry_t last_entry;
+        if (read_content_from_izone(inode, (char*)&last_entry, entry_size, 
+                                  (entry_count-1)*entry_size, entry_size) < 0) {
+            return -7;
+        }
+        
+        if (write_content_to_izone(inode, (char*)&last_entry, entry_size,
+                                 ret*entry_size, entry_size) < 0) {
+            return -8;
+        }
+        
+        inode->data->size -= entry_size;
+    }
+    return 0;
 }
 /**
  * @brief 释放inode所有的数据块
@@ -176,7 +211,7 @@ int delete_entry_not_dir(inode_t* inode, const char* name) {
     }
 
 remove_entry:
-    // 7. 从目录中删除条目
+    // 从目录中删除条目
     int entry_size = sizeof(minix_dentry_t);
     int entry_count = inode->data->size / entry_size;
     
