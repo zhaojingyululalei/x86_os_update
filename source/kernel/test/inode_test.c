@@ -113,19 +113,29 @@ void inode_read_write_test(void)
         }
     }
 }
-static void inode_entry_test(void)
+static void show_all_inode(void)
 {
     inode_t inode;
     get_dev_inode(&inode, 7, 16, 1);
-    minix_inode_t *inode_data = inode.data;
-    print_mode(inode.data->mode);
-    dbg_info("file size:%d\r\n", inode_data->size);
-    minix_dentry_t *entry = kmalloc(sizeof(minix_dentry_t));
-    int ret = find_entry(&inode, "test_dir", entry);
-    dbg_info("find entry:%s\r\n", entry->name);
+    
+    stat_inode(&inode);
+    ls_inode(&inode);
+    tree_inode(&inode,0);
+}
+static void inode_entry_test(void)
+{
+    inode_t inode;
+    get_dev_inode(&inode, 7, 16, 2);
+    ls_inode(&inode);
+    delete_entry_dir(&inode,"test2",true);
+    show_all_inode();
+    minix_mkdir("/test_dir/test2",0777);
+    ls_inode(&inode);
+    //show_all_inode();
+    minix_rmdir("/test_dir/test2");
+    ls_inode(&inode);
+    //show_all_inode();
 
-    delete_entry_dir(&inode, entry->name, true);
-    print_entrys(&inode);
 }
 void inode_test(void)
 {
@@ -138,21 +148,23 @@ void inode_test(void)
     ASSERT(strcmp(path_normalize("/a/b/../c"), "/a/c") == 0);
     ASSERT(strcmp(path_normalize("/"), "/") == 0);
     ASSERT(strcmp(path_normalize("a/b/../../c"), "c") == 0);
-    //inode_entry_test();
-    const char* path = "/test_dir/test2/test2.txt";
-    inode_t *target = namei(path);
-    minix_inode_t *inode_data = target->data;
-    print_mode(target->data->mode);
-    dbg_info("file size:%d\r\n", inode_data->size);
-    // 读取测试
-    if (ISFILE(target->data->mode))
-    {
-        memset(read_buf,0,512);
-        read_content_from_izone(target, read_buf, READ_BUF_SIZE, 0, target->data->size);
-        dbg_info("content is :%s\r\n", read_buf );
-    }
-    target = named(path);
-    print_mode(target->data->mode);
-    print_entrys(target);
+    inode_entry_test();
+
+
+    // const char* path = "/test_dir/test2/test2.txt";
+    // inode_t *target = namei(path);
+    // minix_inode_t *inode_data = target->data;
+    // print_mode(target->data->mode);
+    // dbg_info("file size:%d\r\n", inode_data->size);
+    // // 读取测试
+    // if (ISFILE(target->data->mode))
+    // {
+    //     memset(read_buf,0,512);
+    //     read_content_from_izone(target, read_buf, READ_BUF_SIZE, 0, target->data->size);
+    //     dbg_info("content is :%s\r\n", read_buf );
+    // }
+    // target = named(path);
+    // print_mode(target->data->mode);
+    // print_entrys(target);
     return;
 }

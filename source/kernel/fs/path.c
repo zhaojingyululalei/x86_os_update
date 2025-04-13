@@ -6,7 +6,7 @@ static char *strdup(const char *s)
     size_t len = strlen(s);
     len +=1;
     char* new_s = (char*)kmalloc(len);
-    strncpy(new_s,s,len);
+    strncpy(new_s,s,len-1);
     return new_s;
 }
 // 判断字符是否是路径分隔符

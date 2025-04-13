@@ -2,6 +2,7 @@
 #include "string.h"
 #include "printk.h"
 #include "fs/buffer.h"
+#include "fs/stat.h"
 /**
  * @brief 获取某个设备的某个inode
  * @note  inode表的第一个节点，其实是imap位图的第1个节点，而不是第0个，第0个是无效节点，在imap中，第0个节点永远为1
@@ -12,7 +13,7 @@ int get_dev_inode(inode_t *inode, int major, int minor, int idx)
     // 参数检查
     if (inode == NULL || idx < 1)
     {
-        dbg_error("param fault\r\n");
+        dbg_error("param fault\r\r\n");
         return -1;
     }
 
@@ -20,14 +21,14 @@ int get_dev_inode(inode_t *inode, int major, int minor, int idx)
     super_block_t sup_blk;
     if (get_dev_super_block(&sup_blk, major, minor) != 0)
     {
-        dbg_error("param fault\r\n");
+        dbg_error("param fault\r\r\n");
         return -1;
     }
 
     // 检查inode号是否有效
     if (idx > sup_blk.data->inodes)
     {
-        dbg_error("param fault\r\n");
+        dbg_error("param fault\r\r\n");
         return -1;
     }
 
@@ -37,7 +38,7 @@ int get_dev_inode(inode_t *inode, int major, int minor, int idx)
     uint8_t bit_mask = 1 << (idx % 8);
     if (!(sup_blk.inode_map[byte_offset] & bit_mask))
     {
-        dbg_error("param fault\r\n");
+        dbg_error("param fault\r\r\n");
         return -1; // inode未分配
     }
 
@@ -147,7 +148,7 @@ int inode_get_block(inode_t *inode, int fblock, bool create)
         buffer_t *indirect_buf = fs_read_to_buffer(major, minor, minix_inode->zone[7], true);
         if (!indirect_buf)
         {
-            dbg_error("read buffer fail\r\n");
+            dbg_error("read buffer fail\r\r\n");
             return -2;
         }
         uint16_t *indirect_block = indirect_buf->data;
@@ -174,7 +175,7 @@ int inode_get_block(inode_t *inode, int fblock, bool create)
 
     // 3. 二级间接块处理
     // ...
-    dbg_error("not handle 2-level indirect_block\r\n");
+    dbg_error("not handle 2-level indirect_block\r\r\n");
     // 超出文件最大范围
     return -1;
 }
@@ -349,7 +350,7 @@ int write_content_to_izone(inode_t *inode, const char *buf, int buf_size, int wh
  */
 int inode_truncate(inode_t* inode, uint32_t new_size) {
     if (!inode || !inode->data) {
-        dbg_error("Invalid inode\r\n");
+        dbg_error("Invalid inode\r\r\n");
         return -1;
     }
 
@@ -373,7 +374,7 @@ int inode_truncate(inode_t* inode, uint32_t new_size) {
         for (uint32_t i = old_blocks; i < new_blocks; i++) {
             int blk = inode_get_block(inode, i, true);
             if (blk <= 0) {
-                dbg_error("Failed to allocate block %d\r\n", i);
+                dbg_error("Failed to allocate block %d\r\r\n", i);
                 // 回滚已分配的块？
                 return -2;
             }
@@ -419,7 +420,7 @@ int inode_truncate(inode_t* inode, uint32_t new_size) {
             continue;
         }
         //无需处理二级间接块
-        dbg_error("file too large\r\n");
+        dbg_error("file too large\r\r\n");
     }
 
     // 更新inode信息
@@ -451,8 +452,10 @@ inode_t* namei(const char* path) {
 
     // 确定起始inode
     if (is_rootdir(component)) {
+        //如果是绝对路径
         parent_inode = get_root_inode();
     } else {
+        //如果是相对路径
         parent_inode = cur->ipwd;
     }
 
@@ -496,4 +499,157 @@ inode_t* named(const char* path)
 {
     char* parent = path_dirname(path);
     return namei(parent);
+}
+/**
+ * @brief 打印改inode的所有文件信息，包括mode，nlinks等
+ */
+void stat_inode(inode_t* inode) {
+    if (!inode || !inode->data) {
+        dbg_error("Invalid inode\r\r\n");
+        return;
+    }
+
+    minix_inode_t* minix_inode = inode->data;
+
+    // 打印文件类型
+    char type = ISDIR(minix_inode->mode) ? 'D' : 'F';
+    dbg_info("Type: %c\r\r\n", type);
+
+    // 打印权限
+    print_mode(minix_inode->mode);
+
+    // 打印硬链接数
+    dbg_info("Links: %d\r\r\n", minix_inode->nlinks);
+
+    // 打印文件大小
+    dbg_info("Size: %d bytes\r\r\n", minix_inode->size);
+
+    // 打印时间信息
+    dbg_info("Access Time: %d\r\r\n", inode->atime);
+    dbg_info("Modification Time: %d\r\r\n", inode->mtime);
+    dbg_info("Creation Time: %d\r\r\n", inode->ctime);
+}
+/**
+ * @brief 该inode必须是目录，打印改目录下所有文件信息，包括mode，nlinks等。不递归
+ */
+void ls_inode(inode_t* inode) {
+    if (!inode || !inode->data) {
+        dbg_error("Invalid inode\r\n");
+        return;
+    }
+
+    // 检查是否是目录
+    if (!ISDIR(inode->data->mode)) {
+        dbg_error("Not a directory\r\n");
+        return;
+    }
+
+    // 计算目录条目数量
+    int entry_count = inode->data->size / sizeof(minix_dentry_t);
+    if (entry_count <= 0) {
+        dbg_info("Empty directory\r\n");
+        return;
+    }
+
+    // 读取所有目录条目
+    minix_dentry_t* entries = kmalloc(inode->data->size);
+    if (!entries) {
+        dbg_error("Memory allocation failed\r\n");
+        return;
+    }
+
+    if (read_content_from_izone(inode, (char*)entries, inode->data->size, 
+                              0, inode->data->size) < 0) {
+        dbg_error("Failed to read directory entries\r\n");
+        kfree(entries);
+        return;
+    }
+
+    // 打印表头
+    dbg_info("Total %d entries:\r\n", entry_count);
+    dbg_info("Inode\tName\tType\tSize\tLinks\r\n");
+    dbg_info("--------------------------------\r\n");
+
+    // 打印每个条目
+    for (int i = 0; i < entry_count; i++) {
+        // 获取条目 inode 信息
+        inode_t entry_inode;
+        if (get_dev_inode(&entry_inode, inode->major, inode->minor, 
+                         entries[i].nr) < 0) {
+            continue;
+        }
+
+        // 打印条目信息
+        char type = ISDIR(entry_inode.data->mode) ? 'D' : 'F';
+        dbg_info("%d\t%s\t%c\t%d\t%d\r\n", 
+                entries[i].nr,
+                entries[i].name,
+                type,
+                entry_inode.data->size,
+                entry_inode.data->nlinks);
+    }
+
+    kfree(entries);
+}
+/**
+ * @brief 打印改inode的所有文件信息，包括mode，nlinks等，递归(如果是目录则递归)
+ */
+void tree_inode(inode_t* inode, int level) {
+    if (!inode || !inode->data) {
+        dbg_error("Invalid inode\r\n");
+        return;
+    }
+
+    // 打印当前 inode 信息
+    for (int i = 0; i < level; i++) {
+        dbg_info("│   "); // 缩进符号
+    }
+
+    // 判断是否是最后一个条目
+    if (level > 0) {
+        dbg_info("├── "); // 子条目前缀
+    }
+
+    // 打印文件类型和名称
+    char type = ISDIR(inode->data->mode) ? 'D' : 'F';
+    dbg_info("[%c] unkown (nlinks: %d)\r\n", type, inode->data->nlinks);
+
+    // 如果是目录，递归打印子目录和文件
+    if (ISDIR(inode->data->mode)) {
+        int entry_count = inode->data->size / sizeof(minix_dentry_t);
+        if (entry_count <= 0) {
+            return;
+        }
+
+        minix_dentry_t* entries = kmalloc(inode->data->size);
+        if (!entries) {
+            dbg_error("Memory allocation failed\r\n");
+            return;
+        }
+
+        if (read_content_from_izone(inode, (char*)entries, inode->data->size, 
+                                  0, inode->data->size) < 0) {
+            dbg_error("Failed to read directory entries\r\n");
+            kfree(entries);
+            return;
+        }
+
+        for (int i = 0; i < entry_count; i++) {
+            // 跳过 . 和 ..
+            if (strcmp(entries[i].name, ".") == 0 || 
+                strcmp(entries[i].name, "..") == 0) {
+                continue;
+            }
+
+            inode_t child_inode;
+            if (get_dev_inode(&child_inode, inode->major, inode->minor, 
+                             entries[i].nr) < 0) {
+                continue;
+            }
+
+            tree_inode(&child_inode, level + 1); // 递归打印
+        }
+
+        kfree(entries);
+    }
 }

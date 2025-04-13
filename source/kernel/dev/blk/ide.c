@@ -149,7 +149,7 @@ void do_handler_ide(exception_frame_t *frame)
 
     // 读取常规状态寄存器，表示中断处理结束
     uint8_t state = inb(ctrl->iobase + IDE_STATUS);
-    dbg_info("harddisk interrupt vector %d state 0x%x\r\n", vector, state);
+    //dbg_info("harddisk interrupt vector %d state 0x%x\r\n", vector, state);
     sys_sem_notify(&ctrl->sem);
 }
 void do_handler_ide_prim(exception_frame_t *frame)
@@ -1138,7 +1138,7 @@ static int disk_part_open(int devfd, int flag)
         return -3;
     }
 
-    dbg_info("open disk_part %s success\r\n", part->name);
+    //dbg_info("open disk_part %s success\r\n", part->name);
 
     return 0;
 }

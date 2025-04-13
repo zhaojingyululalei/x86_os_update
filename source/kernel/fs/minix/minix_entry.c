@@ -43,7 +43,7 @@ int find_entry(inode_t *inode, const char *name, minix_dentry_t *entry)
 }
 /**
  * @brief 添加一条entry
- * @return 返回添加的是，所在inode的第几条entry
+ * @return 返回新创建的inode的 nr
  */
 int add_entry(inode_t *inode, const char *name)
 {
@@ -68,7 +68,7 @@ int add_entry(inode_t *inode, const char *name)
         return -2;
     }
     kfree(entry);
-    return entry_nr;
+    return entry->nr;
 
 }
 /**
@@ -136,7 +136,7 @@ int delete_entry_not_dir(inode_t* inode, const char* name) {
         return -1;
     }
 
-    // 1. 查找目录条目
+    // 查找目录条目
     minix_dentry_t entry;
     int ret = find_entry(inode, name, &entry);
     if (ret < 0) {
@@ -144,32 +144,32 @@ int delete_entry_not_dir(inode_t* inode, const char* name) {
         return -2;
     }
 
-    // 2. 获取目标inode
+    // 获取目标inode
     inode_t sub_inode;
     if (get_dev_inode(&sub_inode, inode->major, inode->minor, entry.nr) < 0) {
         dbg_error("Failed to get inode\n");
         return -3;
     }
 
-    // 3. 检查文件类型
+    // 检查文件类型
     if (ISDIR(sub_inode.data->mode)) {
         dbg_error("Cannot delete directory with this function\n");
         return -4;
     }
 
-    // 4. 处理硬链接
+    // 处理硬链接
     if (sub_inode.data->nlinks > 1) {
         sub_inode.data->nlinks--;
         goto remove_entry; // 只需要减少链接计数
     }
 
-    // 5. 释放所有数据块
+    // 释放所有数据块
     if (free_inode_zones(&sub_inode) < 0) {
         dbg_error("Failed to free zones\n");
         return -5;
     }
 
-    // 6. 释放inode
+    // 释放inode
     if (minix_inode_free(sub_inode.major, sub_inode.minor, sub_inode.idx) < 0) {
         dbg_error("Failed to free inode\n");
         return -6;
@@ -205,6 +205,7 @@ remove_entry:
 /**
  * @brief 删除目录项
  * @param recursion 是否递归删除子目录
+ * @param inode 父目录inode
  */
 int delete_entry_dir(inode_t* inode, const char* name, bool recursion) {
     // 参数检查
@@ -212,7 +213,7 @@ int delete_entry_dir(inode_t* inode, const char* name, bool recursion) {
         return -1;
     }
 
-    // 1. 查找目录条目
+    // 查找目录条目
     minix_dentry_t entry;
     int ret = find_entry(inode, name, &entry);
     if (ret < 0) {
@@ -220,27 +221,27 @@ int delete_entry_dir(inode_t* inode, const char* name, bool recursion) {
         return -2;
     }
 
-    // 2. 获取目标inode
+    // 获取目标inode
     inode_t sub_inode;
     if (get_dev_inode(&sub_inode, inode->major, inode->minor, entry.nr) < 0) {
         dbg_error("Failed to get inode\n");
         return -3;
     }
 
-    // 3. 检查文件类型
+    // 检查文件类型
     if (!ISDIR(sub_inode.data->mode)) {
         dbg_error("Not a directory\n");
         return -4;
     }
 
-    // 4. 检查目录是否为空
+    // 检查目录是否为空
     int entry_count = sub_inode.data->size / sizeof(minix_dentry_t);
     if (entry_count > 2 && !recursion) {
         dbg_error("Directory not empty\n");
         return -5;
     }
 
-    // 5. 递归删除子目录和文件
+    // 递归删除子目录和文件
     if (recursion && entry_count > 2) {
         minix_dentry_t *entries = kmalloc(sub_inode.data->size);
         if (!entries) {
@@ -276,7 +277,10 @@ int delete_entry_dir(inode_t* inode, const char* name, bool recursion) {
         kfree(entries);
     }
 
-    // 6. 删除目录本身
+    // 减少父目录的硬链接计数
+    inode->data->nlinks--;
+
+    // 删除目录本身
     // 清空目录内容
     sub_inode.data->size = 0;
     
@@ -292,7 +296,7 @@ int delete_entry_dir(inode_t* inode, const char* name, bool recursion) {
         return -9;
     }
 
-    // 7. 从父目录中删除条目
+    // 从父目录中删除条目
     int entry_size = sizeof(minix_dentry_t);
     int parent_count = inode->data->size / entry_size;
     

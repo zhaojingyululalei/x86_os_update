@@ -46,9 +46,19 @@ for i in 1 2 3 5 6; do
     sudo rm -rf /mnt/test_dir
     sudo chown ${USER} /mnt
     mkdir /mnt/test_dir
-    mkdir /mnt/test_dir/test2
     echo "Test file for partition $i" > /mnt/test_dir/test.txt
+    mkdir /mnt/test_dir/test1
+    echo "Test file for partition $i" > /mnt/test_dir/test1/test1.txt
+    mkdir /mnt/test_dir/test2
     echo "Test file for partition $i" > /mnt/test_dir/test2/test2.txt
+    mkdir /mnt/test_dir/test3
+    echo "Test file for partition $i" > /mnt/test_dir/test3/test3.txt
+    mkdir /mnt/test_dir/test1/subtest1
+    echo "Test file for partition $i" > /mnt/test_dir/test1/subtest1/test1.txt
+    mkdir /mnt/test_dir/test2/subtest2
+    echo "Test file for partition $i" > /mnt/test_dir/test2/subtest2/test2.txt
+    mkdir /mnt/test_dir/test3/subtest3
+    echo "Test file for partition $i" > /mnt/test_dir/test3/subtest3/test3.txt
     
     sudo umount /mnt
 done

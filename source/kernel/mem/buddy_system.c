@@ -327,7 +327,9 @@ static void *buddy_system_alloc(buddy_system_t *buddy, size_t size)
     buddy_alloc_head_t *header = (buddy_alloc_head_t *)bucket->addr;
     header->bucket = bucket;
 
-    return (void *)(bucket->addr + sizeof(buddy_alloc_head_t));
+    ph_addr_t retaddr = (void *)(bucket->addr + sizeof(buddy_alloc_head_t));
+    memset(retaddr,0,size-sizeof(buddy_alloc_head_t));
+    return retaddr;
 }
 
 /**

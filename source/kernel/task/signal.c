@@ -3,6 +3,7 @@
 #include "string.h"
 #include "task/task.h"
 #include "time/time.h"
+#include "errno.h"
 #include "task/sche.h"
 extern void exception_handler_signal(void);
 void do_handler_signal(exception_frame_t *frame)

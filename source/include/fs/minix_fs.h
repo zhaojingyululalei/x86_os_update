@@ -65,4 +65,8 @@ int delete_entry_dir(inode_t* inode, const char* name, bool recursion);
 
 int print_mode(uint16_t mode);
 void print_entrys(inode_t* inode);
+
+
+int minix_mkdir (char *path, int mode);
+int minix_rmdir(const char* path);
 #endif

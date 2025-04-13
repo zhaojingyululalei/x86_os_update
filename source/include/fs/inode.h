@@ -2,7 +2,6 @@
 #define __INODE_H
 #include "types.h"
 #include "time/time.h"
-
 typedef struct minix_inode_t
 {
     uint16_t mode;    // 文件类型和属性(rwx 位)
@@ -24,6 +23,8 @@ typedef struct _inode_t
     time_t mtime; // 修改时间
     time_t ctime; // 创建时间
 
-
 }inode_t;
+void stat_inode(inode_t* inode);
+void ls_inode(inode_t* inode);
+void tree_inode(inode_t* inode, int level);
 #endif
