@@ -25,4 +25,6 @@ PathParser* path_parser_init(const char* path);
 bool is_parse_finish(PathParser* parse);
 char* path_parser_next(PathParser* parser);
 void path_parser_free(PathParser* parser);
+char* path_to_absolute(const char* cwd, const char* relative_path);
+char *strdup(const char *s);
 #endif

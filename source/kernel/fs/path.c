@@ -1,14 +1,6 @@
 #include "fs/path.h"
 #include "string.h"
 #include "mem/kmalloc.h"
-static char *strdup(const char *s)
-{
-    size_t len = strlen(s);
-    len +=1;
-    char* new_s = (char*)kmalloc(len);
-    strncpy(new_s,s,len-1);
-    return new_s;
-}
 // 判断字符是否是路径分隔符
 bool is_separator(char c) {
     return c == PATH_SEPARATOR;
@@ -351,6 +343,42 @@ void path_parser_free(PathParser* parser) {
     kfree(parser);
 }
 
+/**
+ * @brief 将相对路径转换为绝对路径
+ * @param cwd 当前工作目录（绝对路径）
+ * @param relative_path 相对路径
+ * @return 成功返回绝对路径字符串，失败返回NULL，需要调用者释放
+ */
+char* path_to_absolute(const char* cwd, const char* relative_path) {
+    if (cwd == NULL || relative_path == NULL) {
+        return NULL;
+    }
+
+    // 如果相对路径已经是绝对路径，直接返回其规范化形式
+    if (path_is_absolute(relative_path)) {
+        return path_normalize(relative_path);
+    }
+
+    // 将当前工作目录和相对路径组合
+    char* combined_path = path_join(cwd, relative_path);
+    if (combined_path == NULL) {
+        return NULL;
+    }
+
+    // 规范化组合后的路径
+    char* absolute_path = path_normalize(combined_path);
+    kfree(combined_path);
+
+    return absolute_path;
+}
+char *strdup(const char *s)
+{
+    size_t len = strlen(s);
+    len +=1;
+    char* new_s = (char*)kmalloc(len);
+    strncpy(new_s,s,len-1);
+    return new_s;
+}
 /**
  * 
  * // 测试路径规范化

@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "minix_super.h": "c",
+        "minix_inode.h": "c",
+        "time.h": "c",
+        "fs.h": "c",
+        "file.h": "c",
+        "minix_fs.h": "c",
+        "task.h": "c",
+        "path.h": "c",
+        "fs_cfg.h": "c"
+    }
+}

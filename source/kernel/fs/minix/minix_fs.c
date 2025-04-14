@@ -2,11 +2,12 @@
 #include "string.h"
 #include "task/task.h"
 #include "task/sche.h"
-#include "fs/inode.h"
 #include "fs/stat.h"
 #include "printk.h"
 #include "fs/path.h"
-int minix_open(inode_t *dir, char *name, int flags, int mode)
+#include "fs/minix_inode.h"
+#include "fs/minix_entry.h"
+int minix_open(minix_inode_desc_t *dir, char *name, int flags, int mode)
 {
 }
 /**
@@ -15,7 +16,7 @@ int minix_open(inode_t *dir, char *name, int flags, int mode)
 int minix_mkdir(char *path, int mode)
 {
     // 解析路径，获取父目录的 inode
-    inode_t *parent_inode = named(path);
+    minix_inode_desc_t *parent_inode = minix_named(path);
     if (!parent_inode)
     {
         dbg_error("Parent directory not found\r\n");
@@ -54,23 +55,24 @@ int minix_mkdir(char *path, int mode)
     }
 
     // 初始化新目录的 inode
-    inode_t new_inode;
-    if (get_dev_inode(&new_inode, parent_inode->major, parent_inode->minor, ino) < 0)
+    minix_inode_desc_t* new_inode = minix_inode_find(parent_inode->major, parent_inode->minor, ino);
+    if(!new_inode)
     {
         dbg_error("Failed to get inode\r\n");
         return -1;
     }
+    
     uint16_t mask = cur_task()->umask;
     mode = mode & ~mask;
-    new_inode.data->mode = IFDIR | mode; // 设置目录类型和权限
-    new_inode.data->nlinks = 2;          // 目录的链接数为2（. 和 ..）
-    new_inode.data->size = 0;            // 初始大小为0
+    new_inode->data->mode = IFDIR | mode; // 设置目录类型和权限
+    new_inode->data->nlinks = 2;          // 目录的链接数为2（. 和 ..）
+    new_inode->data->size = 0;            // 初始大小为0
 
     // 创建 . 和 .. 目录项
     minix_dentry_t dot_entry, dotdot_entry;
     strncpy(dot_entry.name, ".", MINIX1_NAME_LEN);
     dot_entry.nr = ino;
-    if (write_content_to_izone(&new_inode, (char *)&dot_entry, sizeof(minix_dentry_t), 0, sizeof(minix_dentry_t)) < 0)
+    if (minix_inode_write(&new_inode, (char *)&dot_entry, sizeof(minix_dentry_t), 0, sizeof(minix_dentry_t)) < 0)
     {
         dbg_error("Failed to create . entry\r\n");
         return -1;
@@ -78,7 +80,7 @@ int minix_mkdir(char *path, int mode)
 
     strncpy(dotdot_entry.name, "..", MINIX1_NAME_LEN);
     dotdot_entry.nr = parent_inode->idx;
-    if (write_content_to_izone(&new_inode, (char *)&dotdot_entry, sizeof(minix_dentry_t), sizeof(minix_dentry_t), sizeof(minix_dentry_t)) < 0)
+    if (minix_inode_write(&new_inode, (char *)&dotdot_entry, sizeof(minix_dentry_t), sizeof(minix_dentry_t), sizeof(minix_dentry_t)) < 0)
     {
         dbg_error("Failed to create .. entry\r\n");
         return -1;
@@ -95,7 +97,7 @@ int minix_mkdir(char *path, int mode)
 int minix_rmdir(const char *path)
 {
     // 解析路径，获取父目录的 inode
-    inode_t *parent_inode = named(path);
+    minix_inode_desc_t *parent_inode = minix_named(path);
     if (!parent_inode)
     {
         dbg_error("Parent directory not found\r\n");
@@ -130,7 +132,7 @@ int minix_link(const char *old_path, const char *new_path)
     }
 
     // 解析 old_path，获取目标文件的 inode
-    inode_t *target_inode = namei(old_path);
+    minix_inode_desc_t *target_inode = minix_namei(old_path);
     if (!target_inode)
     {
         dbg_error("Target file not found\r\n");
@@ -145,7 +147,7 @@ int minix_link(const char *old_path, const char *new_path)
     }
 
     // 解析 new_path，获取父目录的 inode
-    inode_t *parent_inode = named(new_path);
+    minix_inode_desc_t *parent_inode = minix_named(new_path);
     if (!parent_inode)
     {
         dbg_error("Parent directory not found\r\n");
@@ -192,7 +194,7 @@ int minix_unlink(const char *path)
     }
 
     // 解析 path，获取目标文件的 inode
-    inode_t *target_inode = namei(path);
+    minix_inode_desc_t *target_inode = minix_namei(path);
     if (!target_inode)
     {
         dbg_error("Target file not found\r\n");
@@ -207,7 +209,7 @@ int minix_unlink(const char *path)
     }
 
     // 解析 path，获取父目录的 inode
-    inode_t *parent_inode = named(path);
+    minix_inode_desc_t *parent_inode = minix_named(path);
     if (!parent_inode)
     {
         dbg_error("Parent directory not found\r\n");
@@ -236,9 +238,15 @@ int minix_unlink(const char *path)
     if (target_inode->data->nlinks == 0 && target_inode->ref == 0)
     {
         // 释放 inode 和数据块
-        inode_truncate(target_inode, 0);
+        minix_inode_truncate(target_inode, 0);
         minix_inode_free(target_inode->major, target_inode->minor, target_inode->idx);
 
     }
     return 0;
+}
+
+ 
+void minix_fs_init()
+{
+    minix_inode_tree_init();
 }

@@ -3,8 +3,8 @@
 
 #include "types.h"
 #include "ipc/mutex.h"
-#include "fs/inode.h"
 #include "fs/file.h"
+#include "fs/minix_inode.h"
 enum file_flag
 {
     O_RDONLY = 00,      // 只读方式
@@ -20,6 +20,8 @@ enum file_flag
 };
 // 文件系统类型
 typedef enum _fs_type_t {
+    FS_NONE,
+    FS_MINIX,
     FS_FAT16,
     FS_DEVFS,
 }fs_type_t;
@@ -32,7 +34,7 @@ typedef enum _fs_type_t {
 typedef struct _fs_op_t {
 	int (*mount) (struct _fs_t * fs,int major, int minor);
     void (*unmount) (struct _fs_t * fs);
-    int (*open) (inode_t *dir, char *name, int flags, int mode);
+    int (*open) (minix_inode_desc_t *dir, char *name, int flags, int mode);
     int (*read) (char * buf, int size, file_t * file);
     int (*write) (char * buf, int size, file_t * file);
     void (*close) (file_t * file);
@@ -46,7 +48,7 @@ typedef struct _fs_op_t {
     int (*unlink) (const char * path);
 }fs_op_t;
 typedef struct _fs_t {
-    inode_t* mount_inode;       // 挂载点路径
+    minix_inode_desc_t* mount_inode;       // 挂载点路径
     fs_type_t type;              // 文件系统类型
 
     fs_op_t * op;              // 文件系统操作接口
@@ -62,4 +64,6 @@ int sys_write(int fd,const char* buf,size_t len);
 int sys_lseek(int fd, int offset, int whence);
 int sys_close(int fd);
 int sys_fsync(int fd);
+int sys_mount(const char *path, int major, int minor, fs_type_t type);
+
 #endif

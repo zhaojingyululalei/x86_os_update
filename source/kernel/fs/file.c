@@ -50,7 +50,7 @@ void file_inc_ref (file_t * file) {
  */
 void file_table_init (void) {
 	// 文件描述符表初始化
-	memset(&file_table, 0, sizeof(file_table));
+	memset(file_table, 0, sizeof(file_table));
 	sys_mutex_init(&file_alloc_mutex);
 }
 

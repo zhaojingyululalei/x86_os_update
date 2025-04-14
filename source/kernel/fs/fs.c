@@ -9,6 +9,7 @@
 #include "task/task.h"
 #include "task/sche.h"
 #include "fs/stat.h"
+#include "fs/fs_cfg.h"
 #define DISK_SECTOR_SIZE 512
 uint8_t tmp_app_buffer[512 * 1024];
 uint8_t *tmp_pos;
@@ -129,11 +130,13 @@ int sys_rmdir(const char* path) {
     
 }
 extern void fs_buffer_init(void);
-extern void minix_super_init(void);
+extern void minix_fs_init(void);
 extern void file_table_init(void);
 void fs_init(void)
 {
+
     fs_buffer_init();
-    minix_super_init();
+    minix_fs_init();
+    sys_mount("/",FS_ROOT_MAJOR,FS_ROOT_MINOR,FS_MINIX);
     file_table_init();
 }

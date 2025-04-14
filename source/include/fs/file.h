@@ -3,6 +3,7 @@
 #include "types.h"
 #include "minix_fs.h"
 #include "cpu_cfg.h"
+#include "fs/minix_inode.h"
 typedef struct {
     int           fd;        // 文件描述符，标识目录流
     int         offset;    // 偏移量，指示读取目录条目的位置
@@ -16,7 +17,7 @@ typedef struct _dirent {
 }dirent_t;
 typedef struct file_t
 {
-    inode_t *inode; // 文件 inode
+    minix_inode_desc_t *inode; // 文件 inode
     uint32_t ref;
     uint32_t pos;
 } file_t;
