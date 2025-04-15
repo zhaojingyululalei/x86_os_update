@@ -38,7 +38,7 @@ int find_entry(minix_inode_desc_t *inode, const char *name, minix_dentry_t *entr
         {
             memcpy(entry, start, sizeof(minix_dentry_t));
             kfree(start);
-            return start->nr;
+            return i;
         }
     }
     kfree(start);
@@ -250,6 +250,8 @@ int delete_entry_not_dir(minix_inode_desc_t* inode, const char* name) {
         return -6;
     }
 
+    //从树中移除，并释放inode
+    minix_inode_delete(sub_inode);
 remove_entry:
     // 从目录中删除条目
     int entry_size = sizeof(minix_dentry_t);
@@ -325,7 +327,7 @@ int delete_entry_dir(minix_inode_desc_t* inode, const char* name, bool recursion
             return -6;
         }
 
-        if (minix_inode_read(&sub_inode, (char*)entries, 
+        if (minix_inode_read(sub_inode, (char*)entries, 
                                   sub_inode->data->size, 0, sub_inode->data->size) < 0) {
             kfree(entries);
             return -7;
@@ -373,6 +375,8 @@ int delete_entry_dir(minix_inode_desc_t* inode, const char* name, bool recursion
         return -9;
     }
 
+    //从树中移除inode并释放inode
+    minix_inode_delete(sub_inode);
     // 从父目录中删除条目
     int entry_size = sizeof(minix_dentry_t);
     int parent_count = inode->data->size / entry_size;

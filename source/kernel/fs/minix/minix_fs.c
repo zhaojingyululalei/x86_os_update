@@ -72,7 +72,7 @@ int minix_mkdir(char *path, int mode)
     minix_dentry_t dot_entry, dotdot_entry;
     strncpy(dot_entry.name, ".", MINIX1_NAME_LEN);
     dot_entry.nr = ino;
-    if (minix_inode_write(&new_inode, (char *)&dot_entry, sizeof(minix_dentry_t), 0, sizeof(minix_dentry_t)) < 0)
+    if (minix_inode_write(new_inode, (char *)&dot_entry, sizeof(minix_dentry_t), 0, sizeof(minix_dentry_t)) < 0)
     {
         dbg_error("Failed to create . entry\r\n");
         return -1;
@@ -80,7 +80,7 @@ int minix_mkdir(char *path, int mode)
 
     strncpy(dotdot_entry.name, "..", MINIX1_NAME_LEN);
     dotdot_entry.nr = parent_inode->idx;
-    if (minix_inode_write(&new_inode, (char *)&dotdot_entry, sizeof(minix_dentry_t), sizeof(minix_dentry_t), sizeof(minix_dentry_t)) < 0)
+    if (minix_inode_write(new_inode, (char *)&dotdot_entry, sizeof(minix_dentry_t), sizeof(minix_dentry_t), sizeof(minix_dentry_t)) < 0)
     {
         dbg_error("Failed to create .. entry\r\n");
         return -1;
@@ -98,6 +98,8 @@ int minix_rmdir(const char *path)
 {
     // 解析路径，获取父目录的 inode
     minix_inode_desc_t *parent_inode = minix_named(path);
+    //minix_inode_desc_t* inode = minix_namei(path);
+
     if (!parent_inode)
     {
         dbg_error("Parent directory not found\r\n");

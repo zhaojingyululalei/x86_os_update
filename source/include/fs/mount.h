@@ -12,7 +12,11 @@ typedef struct _mount_point_t {
     int minor;
     fs_type_t type;
     list_node_t node;
-}mount_point_t;
 
+    int father_major;
+    int father_minor;
+    fs_type_t father_type;
+}mount_point_t;
+mount_point_t* find_point_by_path(const char* abs_path);
 
 #endif

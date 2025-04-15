@@ -33,14 +33,18 @@ typedef struct _minix_inode_desc_t
 
 int minix_dblk_alloc(int major, int minor) ;
 int minix_dblk_free(int major, int minor, int blk);
+bool minix_inode_is_free(int major,int minor,int ino);
 int minix_inode_alloc(int major, int minor);
 int minix_inode_free(int major, int minor, int ino);
+minix_inode_t *get_dev_inode_data(int major, int minor, int ino);
 
 void minix_inode_tree_init(void);
+minix_inode_desc_t *minix_inode_open(const char *path, int flag, int mode);
 int minix_inode_read(minix_inode_desc_t *inode, char *buf, int buf_size, int whence, int read_size);
 int minix_inode_write(minix_inode_desc_t *inode, const char *buf, int buf_size, int whence, int write_size);
 minix_inode_desc_t* minix_inode_find(int major,int minor,int ino);
 minix_inode_desc_t *minix_inode_create(minix_inode_desc_t *parent, const char *name);
+void minix_inode_delete(minix_inode_desc_t* inode);
 int minix_inode_truncate(minix_inode_desc_t *inode, uint32_t new_size);
 minix_inode_desc_t *minix_namei(const char *path);
 minix_inode_desc_t* minix_get_parent(minix_inode_desc_t* inode) ;

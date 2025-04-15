@@ -26,8 +26,8 @@ boot_info_t *os_info;
 static void test(void)
 {
     dev_show_all();
-    //inode_test();
-    path_test();
+    inode_test();
+    //path_test();
     
 }
 

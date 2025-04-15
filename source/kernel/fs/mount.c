@@ -115,10 +115,30 @@ int sys_mount(const char *path, int major, int minor, fs_type_t type)
             kfree(mp);
             return -1;
         }
+        mp->father_major = mount_inode->major;
+        mp->father_minor = mount_inode->minor;
+        mount_inode->idx =1;
+        mount_inode->major = major;
+        mount_inode->minor = minor;
+        mount_inode->data = get_dev_inode_data(major,minor,1);
     }
 
     dbg_info("Mounted device %d:%d at %s\r\n", major, minor, mp->point_path);
     return 0;
+}
+mount_point_t* find_point_by_path(const char* abs_path)
+{
+    list_node_t* cur = mount_list.first;
+    while (cur)
+    {
+        mount_point_t* point = list_node_parent(cur,mount_point_t,node);
+        if(strcmp(abs_path,point->point_path)==0)
+        {
+            return point;
+        }
+        cur = cur->next;
+    }
+    
 }
 /**
  * @brief 获取根文件系统节点
