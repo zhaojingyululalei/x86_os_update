@@ -4,6 +4,7 @@
 #include "fs/fs.h"
 #include "string.h"
 #include "fs/minix_entry.h"
+#include "fs/mount.h"
 /**
  * @brief inode读写测试
  */
@@ -70,10 +71,61 @@ static void inode_entry_test(void)
 
     delete_entry_dir(test_dir_inode,"test2",true);
     ls_inode(test_dir_inode);
+
+}
+static void inode_link_test(void)
+{
+    minix_inode_desc_t* root_inode = get_root_inode();
+    tree_inode(root_inode,2);
+
+    minix_link("/test_dir/test2/test2.txt","/test_dir/cp_test2.txt");
+    minix_inode_desc_t* test_dir_inode = minix_inode_open("/test_dir",0,0777);
+    ls_inode(test_dir_inode);
+    tree_inode(root_inode,2);
+
+    minix_unlink("/test_dir/cp_test2.txt");
+    ls_inode(test_dir_inode);
+    tree_inode(root_inode,2);
+
+    minix_unlink("/test_dir/test2/test2.txt");
+    ls_inode(test_dir_inode);
+    tree_inode(root_inode,2);
+}
+/** */
+static inode_mount_test(void)
+{
+    minix_inode_desc_t* root_inode = get_root_inode();
+    tree_inode(root_inode,2);
+
+    sys_mount("/test_dir/mnt",7,17,FS_MINIX);
+
+    minix_inode_desc_t* mnt_inode = minix_inode_open("/test_dir/mnt",0,0777);
+    ls_inode(mnt_inode);
+    tree_inode(mnt_inode,2);
+
+    minix_inode_desc_t* test_dir_inode = minix_inode_open("/test_dir",0,0777);
+    ls_inode(test_dir_inode);
+    tree_inode(root_inode,2);
+    
+    minix_inode_open("/test_dir/mnt/world.txt",O_CREAT,0777);
+    ls_inode(mnt_inode);
+    tree_inode(root_inode,2);
+
+    minix_mkdir("/test_dir/mnt/hello",0777);
+    ls_inode(mnt_inode);
+    tree_inode(mnt_inode,2);
+
+    minix_rmdir("/test_dir/mnt/hello");
+    ls_inode(mnt_inode);
+    //tree_inode(mnt_inode,2);
+    tree_inode(root_inode,2);
+
+    sys_unmount("/test_dir/mnt");
+    tree_inode(root_inode,2);
 }
 void inode_test(void)
 {
-   
+   //inode_entry_test();
     // 不需要规范化的路径
     ASSERT(strcmp(path_normalize("/test_dirtest2test2.txt"), "/test_dirtest2test2.txt") == 0);
     ASSERT(strcmp(path_normalize("filename.txt"), "filename.txt") == 0);

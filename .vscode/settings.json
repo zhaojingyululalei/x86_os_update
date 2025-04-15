@@ -8,6 +8,7 @@
         "minix_fs.h": "c",
         "task.h": "c",
         "path.h": "c",
-        "fs_cfg.h": "c"
+        "fs_cfg.h": "c",
+        "mount.h": "c"
     }
 }

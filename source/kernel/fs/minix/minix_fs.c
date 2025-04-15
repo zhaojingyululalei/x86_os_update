@@ -242,7 +242,8 @@ int minix_unlink(const char *path)
         // 释放 inode 和数据块
         minix_inode_truncate(target_inode, 0);
         minix_inode_free(target_inode->major, target_inode->minor, target_inode->idx);
-
+        //释放inode
+        minix_inode_delete(target_inode);
     }
     return 0;
 }

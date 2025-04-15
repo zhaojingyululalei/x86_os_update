@@ -7,6 +7,7 @@
 #include "string.h"
 #include "fs/buffer.h"
 #include "fs/minix_entry.h"
+#include "fs/mount.h"
 /**
  * @brief 提供一个inode，查找为name的entry并返回
  * @param entry:记录找到的entry
@@ -339,8 +340,18 @@ int delete_entry_dir(minix_inode_desc_t* inode, const char* name, bool recursion
                 strcmp(entries[i].name, "..") == 0) {
                 continue;
             }
+            minix_inode_desc_t *child_inode;
+            if(entries[i].nr == 1)
+            {
+                //如果这是个挂载点，获取挂载点信息
+                mount_point_t* point = get_mount_point(inode,entries[i].name);
+                child_inode = minix_inode_find(point->major, point->minor, entries[i].nr);
+            }
+            else{
+                child_inode = minix_inode_find(sub_inode->major, sub_inode->minor, entries[i].nr);
+            }
 
-            minix_inode_desc_t* child_inode = minix_inode_find(sub_inode->major, sub_inode->minor,entries[i].nr);
+            //minix_inode_desc_t* child_inode = minix_inode_find(sub_inode->major, sub_inode->minor,entries[i].nr);
             if(!child_inode)
             {
                 continue;
@@ -446,8 +457,18 @@ void print_entrys(minix_inode_desc_t* inode) {
     // 打印每个条目
     for (int i = 0; i < entry_count; i++) {
         // 获取条目inode信息
-        minix_inode_desc_t* entry_inode = minix_inode_find(inode->major, inode->minor, 
-                                                             entries[i].nr);
+        minix_inode_desc_t *entry_inode;
+            if(entries[i].nr == 1)
+            {
+                //如果这是个挂载点，获取挂载点信息
+                mount_point_t* point = get_mount_point(inode,entries[i].name);
+                entry_inode = minix_inode_find(point->major, point->minor, entries[i].nr);
+            }
+            else{
+                entry_inode = minix_inode_find(inode->major, inode->minor, entries[i].nr);
+            }
+        //minix_inode_desc_t* entry_inode = minix_inode_find(inode->major, inode->minor, 
+                                                             //entries[i].nr);
         if(!entry_inode)
         {
             continue;

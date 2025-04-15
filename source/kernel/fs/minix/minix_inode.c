@@ -1115,6 +1115,13 @@ void ls_inode(minix_inode_desc_t *inode)
 
     kfree(entries);
 }
+mount_point_t* get_mount_point(minix_inode_desc_t* parent,const char* entry_name)
+{
+    char* abs = minix_inode_to_absolute_path(parent);
+    char* path = path_join(abs,entry_name);
+    mount_point_t* point = find_point_by_path(path);
+   return point;
+}
 /**
  * @brief 打印改inode的所有文件信息，包括mode，nlinks等，递归(如果是目录则递归)
  */
@@ -1140,7 +1147,7 @@ void tree_inode(minix_inode_desc_t *inode, int level)
 
     // 打印文件类型和名称
     char type = ISDIR(inode->data->mode) ? 'D' : 'F';
-    dbg_info("[%c] unkown (nlinks: %d)\r\n", type, inode->data->nlinks);
+    dbg_info("[%c] %s (nlinks: %d)\r\n", type, inode->name,inode->data->nlinks);
 
     // 如果是目录，递归打印子目录和文件
     if (ISDIR(inode->data->mode))
@@ -1175,7 +1182,16 @@ void tree_inode(minix_inode_desc_t *inode, int level)
                 continue;
             }
             minix_inode_desc_t *child_inode;
-            child_inode = minix_inode_find(inode->major, inode->minor, entries[i].nr);
+            if(entries[i].nr == 1)
+            {
+                //如果这是个挂载点，获取挂载点信息
+                mount_point_t* point = get_mount_point(inode,entries[i].name);
+                child_inode = minix_inode_find(point->major, point->minor, entries[i].nr);
+            }
+            else{
+                child_inode = minix_inode_find(inode->major, inode->minor, entries[i].nr);
+            }
+            
             if (!child_inode)
             {
                 continue;
@@ -1398,4 +1414,13 @@ char *minix_inode_to_absolute_path(minix_inode_desc_t *inode)
     kfree(components);
 
     return path;
+}
+
+void insert_inode_to_tree(minix_inode_desc_t* inode)
+{
+    rb_tree_insert(&inode_tree,inode);
+}
+void remove_inode_from_tree(minix_inode_desc_t* inode)
+{
+    rb_tree_remove(&inode_tree,inode);
 }

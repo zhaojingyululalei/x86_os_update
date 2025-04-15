@@ -6,6 +6,7 @@
 #include "time/time.h"
 #include "fs/minix_cfg.h"
 #include "tools/rb_tree.h"
+#include "fs/mount.h"
 typedef struct minix_inode_t
 {
     uint16_t mode;    // 文件类型和属性(rwx 位)
@@ -59,4 +60,9 @@ void tree_inode(minix_inode_desc_t *inode, int level);
 
 
 minix_inode_desc_t* get_root_inode(void);
+
+void insert_inode_to_tree(minix_inode_desc_t* inode);
+void remove_inode_from_tree(minix_inode_desc_t* inode);
+mount_point_t* get_mount_point(minix_inode_desc_t* parent,const char* entry_name);
+
 #endif

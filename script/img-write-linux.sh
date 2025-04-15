@@ -59,7 +59,7 @@ for i in 1 2 3 5 6; do
     echo "Test file for partition $i" > /mnt/test_dir/test2/subtest2/test2.txt
     mkdir /mnt/test_dir/test3/subtest3
     echo "Test file for partition $i" > /mnt/test_dir/test3/subtest3/test3.txt
-    
+    mkdir /mnt/test_dir/mnt
     sudo umount /mnt
 done
 #sudo chown ${USER} /mnt/test_dir/test.txt

@@ -65,5 +65,6 @@ int sys_lseek(int fd, int offset, int whence);
 int sys_close(int fd);
 int sys_fsync(int fd);
 int sys_mount(const char *path, int major, int minor, fs_type_t type);
+int sys_unmount(const char *path) ;
 
 #endif
