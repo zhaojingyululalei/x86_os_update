@@ -17,6 +17,8 @@
 #include "cpu_cfg.h"
 #include "mem/page.h"
 #include "dev/pci.h"
+
+
 extern void ide_init(void);
 extern void fs_init(void);
 extern void kbd_init(void);
