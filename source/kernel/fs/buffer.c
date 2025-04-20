@@ -6,6 +6,7 @@
 #include "dev/dev.h"
 #include "string.h"
 #include "cpu_cfg.h"
+#include "fs/devfs/devfs.h"
 static buffer_t fs_buffer[FS_BUFFER_NR];
 static list_t fs_buffer_free_list;
 static rb_tree_t fs_buffer_tree;
@@ -120,12 +121,13 @@ void release_buffer(buffer_t *buf)
 }
 
 /**
- * @brief 读取磁盘内容到缓冲  注：一个缓冲存储8个连续扇区 4KB 即4个文件块
+ * @brief 读取某磁盘或者扇区的几块到缓冲  注：一个缓冲存储8个连续扇区 4KB 即4个文件块
  * @param blk:这个块号指的是文件系统块号 2个扇区
  * @param modify:获取这个缓冲块的目的是啥？是要修改数据吗，还是仅仅读取
  */
 buffer_t *fs_read_to_buffer(int major, int minor, int blk, bool modify)
 {
+
     int ret;
     int orign_blk = blk;
     // 先检查这些块在不在缓冲
@@ -158,8 +160,10 @@ buffer_t *fs_read_to_buffer(int major, int minor, int blk, bool modify)
         target->dirty = false;
         target->valid = true;
         // 从磁盘上把这页数据写入缓存
-        int devfd = dev_open(major, minor, NULL);
-        ret = dev_read(devfd, blk * BLOCK_SECS, phaddr, MEM_PAGE_SIZE, 0);
+        int devfd = MKDEV(major,minor);
+        dev_open(devfd);
+        int offset = blk * BLOCK_SECS;
+        ret = dev_read(devfd,  phaddr, MEM_PAGE_SIZE, &offset);
         if (ret < 0)
         {
             dbg_error("disk blk write to buffer fail\r\n");
@@ -168,7 +172,7 @@ buffer_t *fs_read_to_buffer(int major, int minor, int blk, bool modify)
             sys_mutex_unlock(&fs_buf_mutex);
             return NULL;
         }
-        dev_close(devfd, 0);
+        dev_close(devfd);
         list_insert_last(&fs_LRU_list, &target->lru_node);
         rb_tree_insert(&fs_buffer_tree, target);
     }
@@ -190,15 +194,17 @@ void fs_contend_buffer(buffer_t *buf)
     if (buf->dirty)
     {
         // 如果是脏数据，需要写回到磁盘
-        int devfd = dev_open(buf->major, buf->minor, NULL);
-        ret = dev_write(devfd, buf->blk * BLOCK_SECS, buf->page->phaddr, MEM_PAGE_SIZE, 0);
+        int devfd =MKDEV(buf->major,buf->minor);
+        dev_open(devfd);
+        int offset = buf->blk * BLOCK_SECS;
+        ret = dev_write(devfd,  buf->page->phaddr, MEM_PAGE_SIZE, &offset);
         if (ret < 0)
         {
             dbg_error("write back to disk fail\r\n");
             //sys_mutex_unlock(&fs_buf_mutex);
             return;
         }
-        dev_close(devfd, 0);
+        dev_close(devfd);
         buf->dirty = false;
     }
     rb_tree_remove(&fs_buffer_tree, buf);
@@ -217,15 +223,17 @@ void fs_sync_buffer(buffer_t *buf)
     if (buf->dirty)
     {
         // 如果是脏数据，需要写回到磁盘
-        int devfd = dev_open(buf->major, buf->minor, NULL);
-        ret = dev_write(devfd, buf->blk * BLOCK_SECS, buf->page->phaddr, MEM_PAGE_SIZE, 0);
+        int devfd =MKDEV(buf->major,buf->minor);
+        dev_open(devfd);
+        int offset = buf->blk * BLOCK_SECS;
+        ret = dev_write(devfd,  buf->page->phaddr, MEM_PAGE_SIZE, &offset);
         if (ret < 0)
         {
             dbg_error("write back to disk fail\r\n");
             sys_mutex_unlock(&fs_buf_mutex);
             return;
         }
-        dev_close(devfd, 0);
+        dev_close(devfd);
         buf->dirty = false;
     }
     sys_mutex_unlock(&fs_buf_mutex);

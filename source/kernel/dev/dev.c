@@ -9,6 +9,7 @@
 #include "mem/kmalloc.h"
 #include "ipc/mutex.h"
 #include "dev/dev.h"
+#include "fs/devfs/devfs.h"
 
 // 设备树
 static rb_tree_t dev_tree;
@@ -90,17 +91,13 @@ static device_t *dev_find(int major, int minor)
     }
 }
 
-device_t *dev_get(int devfd)
-{
-    device_t *dev = (device_t *)devfd;
-    return dev;
-}
+
 
 int dev_install(device_type_t type, int major, int minor, const char *name, void *data, dev_ops_t *ops)
 {
     
     device_t *dev = (device_t *)kmalloc(sizeof(device_t));
-    dev->devfd = (int)dev;
+    dev->devfd = MKDEV(major,minor);
     dev->ops = ops;
     dev->desc.data = data;
     dev->desc.major = major;
@@ -120,9 +117,17 @@ void dev_show_all(void)
 {
     rb_tree_inorder(&dev_tree,dev_tree.root,device_print);
 }
-int dev_open(int major, int minor, void *data)
+static device_t *dev_get(dev_t devfd)
 {
-    
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
+    device_t* dev = dev_find(major,minor);
+    return dev;
+}
+int dev_open(dev_t devfd)
+{
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major >= DEV_MAJOR_MAX)
     {
@@ -137,7 +142,7 @@ int dev_open(int major, int minor, void *data)
         
         return -4;
     }
-    dev->desc.data = data;
+    
     dev->desc.open_count++;
     if (dev->ops == NULL)
     {
@@ -146,20 +151,16 @@ int dev_open(int major, int minor, void *data)
         return -1;
     }
    
-    int ret = dev->ops->open(dev->devfd, 0);
+    int ret = dev->ops->open(dev->devfd);
 
-    if (ret < 0)
-    {
-
-        return -2;
-    }
-    else
-    {
-
-        return dev->devfd;
-    }
+    return ret;
 }
-int dev_read(int devfd, int addr, char *buf, int size, int flag)
+/**
+ * @brief 读设备
+ * @param :pos表示的是偏移量
+ * @note :如果是块设备，pos的步长是一块，(512字节) ；如果是字符设备，pos的步长是1字节
+ */
+int dev_read(dev_t devfd,  char *buf, int size, int *pos)
 {
 
     device_t *dev = dev_get(devfd);
@@ -170,9 +171,14 @@ int dev_read(int devfd, int addr, char *buf, int size, int flag)
         return -1;
     }
 
-    return dev->ops->read(devfd, addr, buf, size, flag);
+    return dev->ops->read(devfd,  buf, size, pos);
 }
-int dev_write(int devfd, int addr, char *buf, int size, int flag)
+/**
+ * @brief 写设备
+ * @param :pos表示的是偏移量
+ * @note :如果是块设备，pos的步长是一块，(512字节) ；如果是字符设备，pos的步长是1字节
+ */
+int dev_write(dev_t devfd,  char *buf, int size, int *pos)
 {
 
     device_t *dev = dev_get(devfd);
@@ -183,9 +189,9 @@ int dev_write(int devfd, int addr, char *buf, int size, int flag)
         return -1;
     }
 
-    return dev->ops->write(devfd, addr, buf, size, flag);
+    return dev->ops->write(devfd,buf, size, pos);
 }
-int dev_control(int devfd, int cmd, int arg0, int arg1)
+int dev_control(dev_t devfd, int cmd, int arg0, int arg1)
 {
 
     device_t *dev = dev_get(devfd);
@@ -198,7 +204,7 @@ int dev_control(int devfd, int cmd, int arg0, int arg1)
 
     return dev->ops->control(devfd, cmd, arg0, arg1);
 }
-void dev_close(int devfd, int flag)
+void dev_close(dev_t devfd)
 {
     device_t *dev = dev_get(devfd);
     if (!dev)
@@ -206,5 +212,15 @@ void dev_close(int devfd, int flag)
         dbg_error("device not exisit\r\n");
         return -1;
     }
-    return dev->ops->close(devfd, flag);
+    return dev->ops->close(devfd);
+}
+int dev_lseek(dev_t devfd,int* pos,int offset,int whence)
+{
+    device_t *dev = dev_get(devfd);
+    if (!dev)
+    {
+        dbg_error("device not exisit\r\n");
+        return -1;
+    }
+    return dev->ops->lseek(devfd, pos,offset,whence);
 }

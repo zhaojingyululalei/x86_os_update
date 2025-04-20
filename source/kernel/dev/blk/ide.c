@@ -10,6 +10,8 @@
 #include "task/task.h"
 #include "time/clock.h"
 #include "errno.h"
+#include "dev/dev.h"
+#include "fs/devfs/devfs.h"
 #define IDE_TIMEOUT 2000
 
 // IDE 寄存器基址
@@ -902,12 +904,19 @@ static int ide_pio_ioctl(ide_disk_t *disk, int cmd, void *args, int flags)
 {
     switch (cmd)
     {
-    case DEV_CMD_SECTOR_START:
-        return 0;
-    case DEV_CMD_SECTOR_COUNT:
+    case DEV_CMD_GETINFO:
+        return disk;
+    
+    case DISK_CMD_SECTOR_COUNT:
         return disk->total_lba;
-    case DEV_CMD_SECTOR_SIZE:
+    case DISK_CMD_SECTOR_SIZE:
         return disk->sector_size;
+    case DEV_CMD_COMMENTS:
+        dbg_info("DEV_CMD_COMMENTS: return all cmd \r\n");
+        dbg_info("DEV_CMD_GETINFO : return ide_disk_t struct\r\n");
+        dbg_info("DISK_CMD_SECTOR_COUNT :return get disk sector counts\r\n");
+        dbg_info("DISK_CMD_SECTOR_SIZE: return size of per sector\r\n");
+        return;
     default:
         dbg_error("device command %d can't recognize!!!", cmd);
         break;
@@ -918,12 +927,23 @@ static int ide_pio_part_ioctl(ide_part_t *part, int cmd, void *args, int flags)
 {
     switch (cmd)
     {
-    case DEV_CMD_SECTOR_START:
+    case PART_CMD_SECTOR_START:
         return part->start;
-    case DEV_CMD_SECTOR_COUNT:
+    case PART_CMD_SECTOR_COUNT:
         return part->count;
-    case DEV_CMD_SECTOR_SIZE:
+    case PART_CMD_SECTOR_SIZE:
         return part->disk->sector_size;
+    case PART_CMD_FS_TYPE:
+        return part->system;
+    case DEV_CMD_GETINFO:
+        return part;
+    case DEV_CMD_COMMENTS:
+        dbg_info("DEV_CMD_COMMENTS: return all cmd \r\n");
+        dbg_info("PAET_CMD_GETINFO : return ide_part_t struct\r\n");
+        dbg_info("PART_CMD_FS_TYPE:return part fs system\r\n");
+        dbg_info("PART_CMD_SECTOR_COUNT :return get part sector counts\r\n");
+        dbg_info("PART_CMD_SECTOR_SIZE: return size of per sector\r\n");
+        return;
     default:
         dbg_error("device command %d can't recognize!!!", cmd);
         break;
@@ -965,11 +985,11 @@ static ide_disk_t *minor_get_disk(int minor)
 
     return &controllers[cidx].disks[didx];
 }
-static int ide_disk_open(int devfd, int flag)
+static int ide_disk_open(dev_t devfd, int flag)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_DISK)
     {
@@ -991,11 +1011,10 @@ static int ide_disk_open(int devfd, int flag)
     dbg_info("open disk %s success\r\n", disk->name);
     return 0;
 }
-static int ide_disk_read(int devfd, int addr, char *buf, int size)
+static int ide_disk_read(dev_t devfd,  char *buf, int size,int* pos)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_DISK)
     {
@@ -1017,14 +1036,13 @@ static int ide_disk_read(int devfd, int addr, char *buf, int size)
         read = ide_udma_read;
         //write = ide_udma_write;
     }
-    int ret  = read(disk,buf,size/SECTOR_SIZE,addr);
+    int ret  = read(disk,buf,size/SECTOR_SIZE,*pos);
     return ret;
 }
-static int ide_disk_write(int devfd, int addr, char *buf, int size)
+static int ide_disk_write(dev_t devfd,  char *buf, int size,int* pos)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_DISK)
     {
@@ -1046,14 +1064,13 @@ static int ide_disk_write(int devfd, int addr, char *buf, int size)
         //read = ide_udma_read;
         write = ide_udma_write;
     }
-    int ret  = write(disk,buf,size/SECTOR_SIZE,addr);
+    int ret  = write(disk,buf,size/SECTOR_SIZE,*pos);
     return ret;
 }
-static int ide_disk_control(int devfd, int cmd, int arg0, int arg1)
+static int ide_disk_control(dev_t devfd, int cmd, int arg0, int arg1)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_DISK)
     {
@@ -1064,8 +1081,21 @@ static int ide_disk_control(int devfd, int cmd, int arg0, int arg1)
     ide_disk_t *disk = minor_get_disk(minor);
     return ide_pio_ioctl(disk,cmd,arg0,arg1);
 }
-static int ide_disk_close(int devfd)
+static int ide_disk_close(dev_t devfd)
 {
+    return 0;
+}
+static int ide_disk_lseek(dev_t devfd,int *pos, int offset, int whence)
+{
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
+
+    if (major != DEV_MAJOR_IDE_PART)
+    {
+        dbg_error("major=%d,when open part device\r\n", major);
+        return -1;
+    }
+    *pos = offset;
     return 0;
 }
 // 设备描述表: 描述一个设备所具备的特性
@@ -1076,6 +1106,7 @@ dev_ops_t dev_disk_opts = {
     .write = ide_disk_write,
     .control = ide_disk_control,
     .close = ide_disk_close,
+    .lseek = ide_disk_lseek
 };
 /**
  * @brief 计算part分区的次设备号
@@ -1116,11 +1147,10 @@ static ide_part_t *minor_get_part(int minor)
 
     return &controllers[cidx].disks[didx].parts[pidx];
 }
-static int disk_part_open(int devfd, int flag)
+static int disk_part_open(dev_t devfd, int flag)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_PART)
     {
@@ -1142,11 +1172,10 @@ static int disk_part_open(int devfd, int flag)
 
     return 0;
 }
-static int disk_part_read(int devfd, int addr, char *buf, int size)
+static int disk_part_read(dev_t devfd,  char *buf, int size,int* pos)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_PART)
     {
@@ -1167,14 +1196,13 @@ static int disk_part_read(int devfd, int addr, char *buf, int size)
     {
         read = ide_udma_read;
     }
-    int ret =  read(part->disk, buf, size/SECTOR_SIZE, part->start + addr);
+    int ret =  read(part->disk, buf, size/SECTOR_SIZE, part->start + *pos);
     return ret;
 }
-static int disk_part_write(int devfd, int addr, char *buf, int size)
+static int disk_part_write(dev_t devfd,  char *buf, int size,int* pos)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_PART)
     {
@@ -1196,14 +1224,13 @@ static int disk_part_write(int devfd, int addr, char *buf, int size)
         //read = ide_udma_read;
         write = ide_udma_write;
     }
-    int ret =  write(part->disk, buf, size/SECTOR_SIZE, part->start + addr);
+    int ret =  write(part->disk, buf, size/SECTOR_SIZE, part->start + *pos);
     return ret;
 }
-static int disk_part_control(int devfd, int cmd, int arg0, int arg1)
+static int disk_part_control(dev_t devfd, int cmd, int arg0, int arg1)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
 
     if (major != DEV_MAJOR_IDE_PART)
     {
@@ -1214,8 +1241,21 @@ static int disk_part_control(int devfd, int cmd, int arg0, int arg1)
     ide_part_t *part = minor_get_part(minor);
     return ide_pio_part_ioctl(part,cmd,arg0,arg1);
 }
-static int disk_part_close(int devfd)
+static int disk_part_close(dev_t devfd)
 {
+    return 0;
+}
+static int disk_part_lseek(dev_t devfd,int *pos, int offset, int whence)
+{
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
+
+    if (major != DEV_MAJOR_IDE_PART)
+    {
+        dbg_error("major=%d,when open part device\r\n", major);
+        return -1;
+    }
+    *pos = offset;
     return 0;
 }
 // 设备描述表: 描述一个设备所具备的特性
@@ -1226,6 +1266,7 @@ dev_ops_t dev_part_opts = {
     .write = disk_part_write,
     .control = disk_part_control,
     .close = disk_part_close,
+    .lseek = disk_part_lseek
 };
 
 static void ide_install()
@@ -1245,7 +1286,7 @@ static void ide_install()
             if (disk->interface == IDE_INTERFACE_ATA)
             {
                 int dminor = disk_get_minor(cidx, didx);
-                dev_install(DEV_TYPE_BLOCK, DEV_MAJOR_IDE_DISK, dminor, disk->name, NULL, &dev_disk_opts);
+                dev_install(DEV_TYPE_BLOCK, DEV_MAJOR_IDE_DISK, dminor, disk->name, disk, &dev_disk_opts);
 
                 for (size_t i = 0; i < IDE_PART_NR; i++)
                 {
@@ -1253,7 +1294,7 @@ static void ide_install()
                     if (!part->count)
                         continue;
                     int pminor = part_get_minor(cidx, didx, i);
-                    dev_install(DEV_TYPE_BLOCK, DEV_MAJOR_IDE_PART, pminor, part->name, NULL, &dev_part_opts);
+                    dev_install(DEV_TYPE_BLOCK, DEV_MAJOR_IDE_PART, pminor, part->name, part, &dev_part_opts);
                 }
             }
         }

@@ -15,6 +15,7 @@ typedef enum PART_FS
 {
     PART_FS_FAT12 = 1,    // FAT12
     PART_FS_EXTENDED = 5, // 扩展分区
+    PART_FS_FAT32 = 0xC, //FAT32
     PART_FS_MINIX = 0x80, // minux
     PART_FS_LINUX = 0x83, // linux
 } PART_FS;
@@ -92,11 +93,21 @@ typedef struct ide_ctrl_t
     scatter_list_t scatter_list;  // 用于管理DMA缓冲区的分散列表
 } ide_ctrl_t;
 // 设备控制命令
-enum device_cmd_t
+enum disk_cmd_t
 {
-    DEV_CMD_SECTOR_START = 1, // 获得设备扇区开始位置 lba
-    DEV_CMD_SECTOR_COUNT,     // 获得设备扇区数量
-    DEV_CMD_SECTOR_SIZE,      // 获得设备扇区大小
+    DISK_CMD_SECTOR_START = 1, // 获得设备扇区开始位置 lba
+    DISK_CMD_SECTOR_COUNT,     // 获得设备扇区数量
+    DISK_CMD_SECTOR_SIZE,      // 获得设备扇区大小
+    
+};
+// 设备控制命令
+enum part_cmd_t
+{
+    PART_CMD_SECTOR_START = 1, // 获得设备扇区开始位置 lba
+    PART_CMD_SECTOR_COUNT,     // 获得设备扇区数量
+    PART_CMD_SECTOR_SIZE,      // 获得设备扇区大小
+    PART_CMD_FS_TYPE,          //获取分区的文件系统类型
+    
 };
 int ide_pio_write(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba);
 int ide_pio_read(ide_disk_t *disk, void *buf, uint32_t count, uint32_t lba);
@@ -104,4 +115,5 @@ int disk_get_minor(int cidx, int didx);
 int disk_get_minor_by_name(const char* name);
 int part_get_minor(int cidx, int didx, int pidx);
 int part_get_minor_by_name(const char* name);
+
 #endif

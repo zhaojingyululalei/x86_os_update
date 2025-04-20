@@ -4,7 +4,7 @@
             "name": "linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/source/include/**",
+                "${workspaceFolder}/source/include/*",
                 "${workspaceFolder}/source/lib/include/*",
                 "${workspaceFolder}/source/os_config/*"
             ]

@@ -21,4 +21,6 @@ extern void tty_test(void);
 extern void buffer_test(void);
 extern void inode_test(void);
 extern void path_test(void);
+extern void devfs_test(void);
+
 #endif

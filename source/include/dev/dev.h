@@ -3,6 +3,7 @@
 
 #include "tools/rb_tree.h"
 #include "tools/list.h"
+#include "fs/devfs/devfs.h"
 #define DEV_NAME_SIZE               32      // 设备名称长度
 
 // 设备类型
@@ -33,14 +34,21 @@ enum device_subtype_t
     DEV_MAJOR_MAX
 };
 
+enum dev_cmd_t
+{
+    DEV_CMD_INVALID,
+    DEV_CMD_GETINFO=64,
+    DEV_CMD_COMMENTS,
+};
 
 
 typedef struct _dev_ops_t{
-    int (*open) (int devfd,int flag) ;
-    int (*read) (int devfd, int addr, char * buf, int size,int flag);
-    int (*write) (int devfd, int addr, char * buf, int size,int flag);
-    int (*control) (int devfd, int cmd, int arg0, int arg1);
-    void (*close) (int devfd,int flag);
+    int (*open) (dev_t devfd) ;
+    int (*read) (dev_t devfd,  char * buf, int size,int* pos);
+    int (*write) (dev_t devfd,  char * buf, int size,int* pos);
+    int (*control) (dev_t devfd, int cmd, int arg0, int arg1);
+    int (*lseek)(dev_t devfd,int* pos,int offset,int whence);
+    void (*close) (dev_t devfd);
 }dev_ops_t;
 
 
@@ -57,18 +65,20 @@ typedef struct _dev_desc_t {
     
 }dev_desc_t;
 typedef struct _device_t {
-    int devfd; //存放device_t地址
+    dev_t devfd; //存放device_t地址
     dev_desc_t  desc;      // 设备特性描述符
     dev_ops_t* ops;
     rb_node_t rbnode;
     list_node_t lnode;
 }device_t;
-device_t* dev_get(int devfd);
-int dev_open (int major, int minor, void * data);
-int dev_read (int devfd, int addr, char * buf, int size,int flag);
-int dev_write (int devfd, int addr, char * buf, int size,int flag);
-int dev_control (int devfd, int cmd, int arg0, int arg1);
-void dev_close (int devfd,int flag);
+
+
+int dev_open (dev_t devfd);
+int dev_read (dev_t devfd,  char * buf, int size,int *pos);
+int dev_write (dev_t devfd,  char * buf, int size,int *pos);
+int dev_control (dev_t devfd, int cmd, int arg0, int arg1);
+void dev_close (dev_t devfd);
 int dev_install(device_type_t type,int major,int minor,const char* name,void* data,dev_ops_t* ops);
 void dev_show_all(void);
+
 #endif

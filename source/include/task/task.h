@@ -9,8 +9,8 @@
 #include "irq/traps.h"
 #include "signal.h"
 #include "mem/buddy_system.h"
-#include "fs/minix_inode.h"
-#include "fs/file.h"
+// #include "fs/minix_inode.h"
+// #include "fs/file.h"
 #define TASK_LIMIT_CNT 512
 #define TASK_PRIORITY_DEFAULT 1
 #define TASK_PID_START 0
@@ -92,10 +92,10 @@ typedef struct _task_t
     list_node_t pool_node; // 用于快速分配释放task_t结构
     bool paused;
     bool stop;
-    minix_inode_desc_t* ipwd;  //当前所在目录
-    minix_inode_desc_t* iroot; //当前所在根目录
+    // minix_inode_desc_t* ipwd;  //当前所在目录
+    // minix_inode_desc_t* iroot; //当前所在根目录
     uint16_t umask;
-    file_t * file_table[TASK_OFILE_NR];	// 任务最多打开的文件数量
+    //file_t * file_table[TASK_OFILE_NR];	// 任务最多打开的文件数量
 } task_t;
 
 typedef struct task_frame_t
@@ -136,9 +136,9 @@ void task_list_debug(void);
 int task_get_errno(void);
 int task_collect(task_t *task);
 
-int task_alloc_fd (file_t * file);
-file_t * task_file (int fd);
-void task_remove_fd (int fd);
+// int task_alloc_fd (file_t * file);
+// file_t * task_file (int fd);
+// void task_remove_fd (int fd);
 
 
 void sys_sleep(uint32_t ms);

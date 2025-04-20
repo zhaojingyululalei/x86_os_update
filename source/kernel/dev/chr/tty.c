@@ -8,6 +8,7 @@
 #include "dev/kbd.h"
 #include "dev/dev.h"
 #include "string.h"
+#include "fs/devfs/devfs.h"
 static tty_t tty_devices[TTY_NR];
 static int active_tty = 0;
 
@@ -300,11 +301,10 @@ void tty_select(int tty)
     }
 }
 
-int tty_open(int devfd, int flag)
+int tty_open(dev_t devfd)
 {
-    device_t *dev = dev_get(devfd);
-    int major = dev->desc.major;
-    int minor = dev->desc.minor;
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
     if (major != DEV_MAJOR_TTY)
     {
         dbg_error("mpjor=%d,when open tty device\r\n", major);
@@ -313,48 +313,52 @@ int tty_open(int devfd, int flag)
     int idx = minor;
     return open_tty_device(idx);
 }
-int tty_read(int devfd, int addr, char *buf, int size)
+int tty_read(dev_t devfd,  char *buf, int size,int* pos)
 {
-    device_t *device = dev_get(devfd);
-    if (device->desc.major != DEV_MAJOR_TTY)
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
+    if (major != DEV_MAJOR_TTY)
     {
-        dbg_error("mpjor=%d,when read tty device\r\n", device->desc.major);
+        dbg_error("mpjor=%d,when read tty device\r\n", major);
         return -1;
     }
-    int idx = device->desc.minor;
-    return read_from_tty(idx, addr, buf, size);
+    int idx = minor;
+    return read_from_tty(idx, *pos, buf, size);
 }
-int tty_write(int devfd, int addr, char *buf, int size)
+int tty_write(dev_t devfd,  char *buf, int size,int* pos)
 {
-    device_t *device = dev_get(devfd);
-    if (device->desc.major != DEV_MAJOR_TTY)
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
+    if (major != DEV_MAJOR_TTY)
     {
-        dbg_error("mpjor=%d,when write tty device\r\n", device->desc.major);
+        dbg_error("mpjor=%d,when write tty device\r\n", major);
         return -1;
     }
-    int idx = device->desc.minor;
-    return write_to_tty(idx, addr, buf, size);
+    int idx = minor;
+    return write_to_tty(idx, *pos, buf, size);
 }
-int tty_control(int devfd, int cmd, int arg0, int arg1)
+int tty_control(dev_t devfd, int cmd, int arg0, int arg1)
 {
-    device_t *device = dev_get(devfd);
-    if (device->desc.major != DEV_MAJOR_TTY)
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
+    if (major != DEV_MAJOR_TTY)
     {
-        dbg_error("mpjor=%d,when control tty device\r\n", device->desc.major);
+        dbg_error("mpjor=%d,when control tty device\r\n", major);
         return -1;
     }
-    int idx = device->desc.minor;
+    int idx = minor;
     return control_tty(idx, cmd, arg0, arg1);
 }
-void tty_close(int devfd)
+void tty_close(dev_t devfd)
 {
-    device_t *device = dev_get(devfd);
-    if (device->desc.major != DEV_MAJOR_TTY)
+    int major = MAJOR(devfd);
+    int minor = MINOR(devfd);
+    if (major != DEV_MAJOR_TTY)
     {
-        dbg_error("mpjor=%d,when close tty device\r\n", device->desc.major);
+        dbg_error("mpjor=%d,when close tty device\r\n", major);
         return -1;
     }
-    int idx = device->desc.minor;
+    int idx = minor;
     return close_tty(idx);
 }
 // 设备描述表: 描述一个设备所具备的特性

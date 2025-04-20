@@ -9,6 +9,11 @@
         "task.h": "c",
         "path.h": "c",
         "fs_cfg.h": "c",
-        "mount.h": "c"
+        "mount.h": "c",
+        "page.h": "c",
+        "dirent.h": "c",
+        "errno.h": "c",
+        "dev.h": "c",
+        "devfs.h": "c"
     }
 }
