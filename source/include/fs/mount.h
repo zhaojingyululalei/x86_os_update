@@ -3,13 +3,14 @@
 
 #include "types.h"
 #include "tools/list.h"
+#include "fs/fs.h"
 #define MAX_PATH_BUF 256
 
 typedef struct _mount_point_t {
     char point_path[MAX_PATH_BUF];
     int major;
     int minor;
-    int type;
+    fs_type_t type;
     list_node_t node;
 
     int father_major;
@@ -18,6 +19,7 @@ typedef struct _mount_point_t {
 
     int orign_nr; //挂载点变了，因此保存之前的nr
 }mount_point_t;
-mount_point_t* find_point_by_path(const char* abs_path);
+mount_point_t* find_point_by_abspath(const char* abs_path);
+mount_point_t* find_point_by_path(const char* path);
 
 #endif

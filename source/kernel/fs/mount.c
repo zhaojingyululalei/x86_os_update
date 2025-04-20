@@ -138,19 +138,23 @@ int sys_mount(const char *path, int major, int minor, fs_type_t type)
     dbg_info("Mounted device %d:%d at %s\r\n", major, minor, mp->point_path);
     return 0;
 }
-mount_point_t* find_point_by_path(const char* abs_path)
+mount_point_t* find_point_by_abspath(const char* abs_path)
 {
+    mount_point_t* ret  = NULL;
     list_node_t* cur = mount_list.first;
     while (cur)
     {
         mount_point_t* point = list_node_parent(cur,mount_point_t,node);
-        if(strcmp(abs_path,point->point_path)==0)
+        if(strcmp(abs_path,point->point_path)==0 )
         {
-            return point;
+            if(ret!=NULL &&strlen(point->point_path)>strlen(ret->point_path))
+            {
+                ret = point;
+            }
         }
         cur = cur->next;
     }
-    
+    return ret;
 }
 /**
  * @brief 卸载已挂载的设备
@@ -186,7 +190,7 @@ int sys_unmount(const char *path) {
     }
 
     // 查找挂载点
-    mount_point_t *mp = find_point_by_path(abs_path);
+    mount_point_t *mp = find_point_by_abspath(abs_path);
     if (!mp) {
         dbg_error("Mount point not found: %s\r\n", abs_path);
         kfree(abs_path);
@@ -240,4 +244,22 @@ int sys_unmount(const char *path) {
 minix_inode_desc_t* get_root_inode(void)
 {
     return minix_get_dev_root_inode(FS_ROOT_MAJOR,FS_ROOT_MINOR);
+}
+
+mount_point_t* find_point_by_path(const char* path)
+{
+    char* abs_path;
+    if (!path_is_absolute(path)) {
+        // 如果不是绝对路径，转换为绝对路径
+        task_t *ctask = cur_task();
+        char *cwd = minix_inode_to_absolute_path(ctask->ipwd);
+        if (!cwd) {
+            dbg_error("Failed to get current working directory\r\n");
+            return -1;
+        }
+
+        abs_path = path_to_absolute(cwd, path);
+        kfree(cwd);
+    }
+    return find_point_by_abspath(abs_path);
 }

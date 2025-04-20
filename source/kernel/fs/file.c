@@ -1,4 +1,4 @@
-#include "fs/file.h"
+#include "fs/fs.h"
 #include "ipc/mutex.h"
 #include "string.h"
 #define FILE_TABLE_SIZE 1024

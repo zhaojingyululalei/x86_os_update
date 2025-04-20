@@ -10,10 +10,13 @@
 #include "task/sche.h"
 #include "fs/stat.h"
 #include "fs/fs_cfg.h"
+#include "fs/mount.h"
+#include "fs/buffer.h"
 #define DISK_SECTOR_SIZE 512
 uint8_t tmp_app_buffer[512 * 1024];
 uint8_t *tmp_pos;
 #define SHELL_FD    1024
+fs_op_t* fs_arr[16];//最多支持16个文件系统
 
 /**
  * 使用LBA48位模式读取磁盘
@@ -73,10 +76,13 @@ int sys_open(const char *path, int flags, uint32_t mode)
 	file_t * file = file_alloc();
     int fd = task_alloc_fd(file);
 
-
 	if (!file) {
 		return -1;
 	}
+    mount_point_t* point = find_point_by_path(path);
+    fs_type_t type = point->type;
+    file->fs_type = type;
+    fs_arr[type]->open(file,path,flags,mode);
 
     
     return 0;
@@ -90,44 +96,86 @@ int sys_read(int fd, char *buf, int len)
         tmp_pos += len;
         return len;
     }
-    else
+    file_t* file = task_file(fd);
+    if(!file)
     {
-        dbg_error("unkown fd:%d\r\n",fd);
+        return -1;
     }
-    return 0;
+    int ret = fs_arr[file->fs_type]->read(file,buf,len);
+    return ret;
 }
 
 int sys_write(int fd,const char* buf,size_t len){
     if(fd == stdout){
         serial_print(buf);
+        return;
     }
+    file_t* file = task_file(fd);
+    if(!file)
+    {
+        return -1;
+    }
+    int ret = fs_arr[file->fs_type]->write(file,buf,len);
+    return ret;
 }
 int sys_lseek(int fd, int offset, int whence)
 {
     if (fd == SHELL_FD)
     {
         tmp_pos = tmp_app_buffer + offset;
+        return;
     }
-    return 0;
+    file_t* file = task_file(fd);
+    if(!file)
+    {
+        return -1;
+    }
+    int ret = fs_arr[file->fs_type]->lseek(file,offset,whence);
+    return ret;
 }
 
 int sys_close(int fd)
 {
-    sys_fsync(fd);
+    
     return 0;
 }
 /**
  * @brief 将该文件同步回磁盘
  */
-int sys_fsync(int fd){
+int sys_fsync(int fd) {
+    // 获取文件描述符对应的文件对象
+    file_t *file = task_file(fd);
+    if (!file) {
+        dbg_error("Invalid file descriptor: %d\r\n", fd);
+        return -1;
+    }
+
+    
+
     return 0;
 }
 
 int sys_mkdir(const char* path, uint16_t mode) {
-    
+    // 解析路径，获取父目录的 inode
+    //minix_inode_desc_t *parent_inode = minix_named(path);
+    minix_inode_desc_t *parent_inode = minix_named(path);
+    if (!parent_inode)
+    {
+        dbg_error("Parent directory not found\r\n");
+        return -1;
+    }
+
+    // 获取新目录的名称
+    char *dir_name = path_basename(path);
+    if (!dir_name)
+    {
+        dbg_error("Invalid directory name\r\n");
+        return -1;
+    }
+    minix_mkdir(parent_inode,);
 }
 int sys_rmdir(const char* path) {
-    
+    return minix_rmdir(path);
 }
 extern void fs_buffer_init(void);
 extern void minix_fs_init(void);
@@ -139,4 +187,9 @@ void fs_init(void)
     minix_fs_init();
     sys_mount("/",FS_ROOT_MAJOR,FS_ROOT_MINOR,FS_MINIX);
     file_table_init();
+}
+
+void fs_register(fs_type_t type,fs_op_t* opt)
+{
+    fs_arr[type] = opt  ;
 }

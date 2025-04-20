@@ -125,7 +125,7 @@ static inode_mount_test(void)
 }
 void inode_test(void)
 {
-   //inode_entry_test();
+   
     // 不需要规范化的路径
     ASSERT(strcmp(path_normalize("/test_dirtest2test2.txt"), "/test_dirtest2test2.txt") == 0);
     ASSERT(strcmp(path_normalize("filename.txt"), "filename.txt") == 0);

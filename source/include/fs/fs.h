@@ -4,7 +4,7 @@
 #include "types.h"
 #include "ipc/mutex.h"
 #include "fs/file.h"
-#include "fs/minix_inode.h"
+#include "fs/stat.h"
 enum file_flag
 {
     O_RDONLY = 00,      // 只读方式
@@ -25,39 +25,50 @@ typedef enum _fs_type_t {
     FS_FAT16,
     FS_DEVFS,
 }fs_type_t;
+struct _fs_op_t;
+typedef struct file_t
+{
+    //如果是 普通文件就是 minix_inode_desc_t*
+    //如果是socket就是 socket_t
+    //如果是dev那就是 dev_t
+    void * metadata; //文件元数据
+    uint32_t ref;
+    int pos;
+    fs_type_t fs_type;
+    fs_op_t* fs_opts;
+} file_t;
 
-
-
+file_t * file_alloc (void);
+void file_free (file_t * file) ;
+void file_inc_ref (file_t * file) ;
+typedef enum whence_t
+{
+    SEEK_SET = 1, // 直接设置偏移
+    SEEK_CUR,     // 当前位置偏移
+    SEEK_END      // 结束位置偏移
+} whence_t;
 /**
  * @brief 文件系统操作接口
  */
 typedef struct _fs_op_t {
-	int (*mount) (struct _fs_t * fs,int major, int minor);
-    void (*unmount) (struct _fs_t * fs);
-    int (*open) (minix_inode_desc_t *dir, char *name, int flags, int mode);
-    int (*read) (char * buf, int size, file_t * file);
-    int (*write) (char * buf, int size, file_t * file);
+	
+    int (*open) ( file_t * file,const char *path, int flags, int mode);
+    int (*read) (file_t * file,char * buf, int size);
+    int (*write) (file_t * file,char * buf, int size);
     void (*close) (file_t * file);
-    int (*lseek) (file_t * file, uint32_t offset, int dir);
-    int (*stat)(file_t * file, struct stat *st);
+    int (*lseek) (file_t * file, int offset, int whence);
+    int (*stat)(file_t * file, file_stat_t *st);
     int (*ioctl) (file_t * file, int cmd, int arg0, int arg1);
-
-    int (*opendir)(const char * name, DIR * dir);
+    void (*fsync)(file_t* file);
+    int (*opendir)(const char * path, DIR * dir);
     int (*readdir)(DIR* dir, struct dirent * dirent);
     int (*closedir)(DIR *dir);
+    int (*mkdir)(minix_inode_desc_t* pinode,const char* dir_name,uint16_t mode);
+    int (*link)(const char *old_path, const char *new_path);
     int (*unlink) (const char * path);
 }fs_op_t;
-typedef struct _fs_t {
-    minix_inode_desc_t* mount_inode;       // 挂载点路径
-    fs_type_t type;              // 文件系统类型
 
-    fs_op_t * op;              // 文件系统操作接口
-    void * data;                // 文件系统的操作数据
-    int major;                 // 所属的设备
-    int minor;
-    list_node_t node;           // 下一结点
-    mutex_t * mutex;              // 文件系统操作互斥信号量
-}fs_t;
+
 int sys_open(const char *path, int flags, uint32_t mode);
 int sys_read(int fd, char *buf, int len);
 int sys_write(int fd,const char* buf,size_t len);
@@ -66,5 +77,8 @@ int sys_close(int fd);
 int sys_fsync(int fd);
 int sys_mount(const char *path, int major, int minor, fs_type_t type);
 int sys_unmount(const char *path) ;
+void fs_register(fs_type_t type,fs_op_t* opt);
 
+int sys_mkdir(const char* path, uint16_t mode) ;
+int sys_rmdir(const char* path);
 #endif
