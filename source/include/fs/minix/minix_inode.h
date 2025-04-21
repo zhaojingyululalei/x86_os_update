@@ -2,6 +2,13 @@
 #define __MINIX_INODE_H
 #include "types.h"
 #include "fs/inode.h"
+#include "fs/minix/minix_cfg.h"
+// 文件目录项结构
+typedef struct _minix_dentry_t
+{
+    uint16_t nr;                    // i 节点
+    char name[MINIX1_NAME_LEN]; // 文件名
+} minix_dentry_t;
 typedef struct minix_inode_desc_t
 {
     mode_t mode;    // 文件类型和属性(rwx 位)

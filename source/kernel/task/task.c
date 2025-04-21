@@ -1,5 +1,6 @@
 
 #include "task/task.h"
+#include "fs/fs.h"
 #include "mem/bitmap.h"
 #include "string.h"
 #include "printk.h"
@@ -273,8 +274,8 @@ void jmp_to_usr_mode(void)
     tss->cs = SELECTOR_USR_CODE_SEG;
     tss->eip = init_task_entry;
 
-    // task->ipwd = get_root_inode();
-    // task->iroot = get_root_inode();
+    task->ipwd = get_root_inode();
+    task->iroot = get_root_inode();
     task->umask = 022;
     // 记录所有page_t为匿名页
     task_record_pages(task);
@@ -552,42 +553,42 @@ static void copy_parent_pdt(task_t *child, task_t *parent)
     }
 }
 
-// /**
-//  * @brief 为指定的file分配一个新的文件id
-//  */
-// int task_alloc_fd (file_t * file) {
-//     task_t * task = cur_task();
+/**
+ * @brief 为指定的file分配一个新的文件id
+ */
+int task_alloc_fd (file_t * file) {
+    task_t * task = cur_task();
 
-//     for (int i = 0; i < TASK_OFILE_NR; i++) {
-//         file_t * p = task->file_table[i];
-//         if (p == (file_t *)0) {
-//             task->file_table[i] = file;
-//             return i;
-//         }
-//     }
+    for (int i = 0; i < TASK_OFILE_NR; i++) {
+        file_t * p = task->file_table[i];
+        if (p == (file_t *)0) {
+            task->file_table[i] = file;
+            return i;
+        }
+    }
 
-//     return -1;
-// }
-// /**
-//  * @brief 获取当前进程指定的文件描述符
-//  */
-// file_t * task_file (int fd) {
-//     if ((fd >= 0) && (fd < TASK_OFILE_NR)) {
-//         file_t * file = cur_task()->file_table[fd];
-//         return file;
-//     }
+    return -1;
+}
+/**
+ * @brief 获取当前进程指定的文件描述符
+ */
+file_t * task_file (int fd) {
+    if ((fd >= 0) && (fd < TASK_OFILE_NR)) {
+        file_t * file = cur_task()->file_table[fd];
+        return file;
+    }
 
-//     return (file_t *)0;
-// }
+    return (file_t *)0;
+}
 
-// /**
-//  * @brief 移除任务中打开的文件fd
-//  */
-// void task_remove_fd (int fd) {
-//     if ((fd >= 0) && (fd < TASK_OFILE_NR)) {
-//         cur_task()->file_table[fd] = (file_t *)0;
-//     }
-// }
+/**
+ * @brief 移除任务中打开的文件fd
+ */
+void task_remove_fd (int fd) {
+    if ((fd >= 0) && (fd < TASK_OFILE_NR)) {
+        cur_task()->file_table[fd] = (file_t *)0;
+    }
+}
 /**
  * @brief 复制父进程,创建子进程
  */
@@ -657,8 +658,8 @@ int sys_fork(void)
     child->ppid = parent->pid;
     child->uid = parent->uid;
     child->gid = parent->gid;
-    // child->iroot = parent->iroot;
-    // child->ipwd = parent->ipwd;
+    child->iroot = parent->iroot;
+    child->ipwd = parent->ipwd;
     child->umask = parent->umask;
     // 将子进程加入父进程的child_list中
     list_insert_last(&parent->child_list, &child->child_node);

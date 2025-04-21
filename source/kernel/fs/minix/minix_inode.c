@@ -9,11 +9,12 @@
 #include "fs/buffer.h"
 #include "time/time.h"
 #include "string.h"
-
+#include "fs/stat.h"
+#include "fs/dirent.h"
 /**
  * @brief 分配一个inode并加入树中
  */
-static minix_inode_t *minix_inode_alloc(dev_t dev, int nr)
+static minix_inode_t *minix_inode_create(dev_t dev, int nr)
 {
     minix_inode_t *inode = (minix_inode_t *)kmalloc(sizeof(minix_inode_t));
     inode->base.dev = dev;
@@ -24,16 +25,17 @@ static minix_inode_t *minix_inode_alloc(dev_t dev, int nr)
 /**
  * @brief 从树中移除该inode并释放
  */
-void minix_inode_free(minix_inode_t *inode)
+static void minix_inode_destory(minix_inode_t *inode)
 {
     rb_tree_t *inode_tree = get_inode_tree();
     rb_tree_remove(inode_tree, inode);
     kfree(inode);
 }
+
 /**
  * @brief 去树中查找inode，找不到返回null
  */
-minix_inode_t *minix_inode_find(dev_t dev, int nr)
+static minix_inode_t *minix_inode_find(dev_t dev, int nr)
 {
     int key[2] = {dev, nr};
     rb_tree_t *inode_tree = get_inode_tree();
@@ -114,7 +116,113 @@ static int minix_inode_getinfo(minix_inode_t *inode, dev_t dev, int nr)
     return 0;
 }
 inode_opts_t minix_inode_opts;
-minix_inode_t *minix_inode_open(dev_t dev, int nr)
+
+/**
+ * @brief 在该分区，找一个空闲的inode节点
+ * @param major 主设备号
+ * @param minor 次设备号
+ * @return 成功返回分配的i节点号，失败返回-1
+ */
+static int minix_inode_alloc(dev_t dev)
+{
+    int major = MAJOR(dev);
+    int minor = MINOR(dev);
+    minix_super_t *sup_blk = minix_get_super(dev);
+    if (!sup_blk)
+    {
+        dbg_error("get major=%d,minor=%d super desc failed\r\n", major, minor);
+        return -1;
+    }
+
+    // 检查超级块是否有效
+    if (sup_blk->data == NULL || sup_blk->inode_map == NULL)
+    {
+        return -1;
+    }
+
+    // i节点总数
+    uint16_t inodes = sup_blk->data->inodes;
+    // i节点位图字节数
+    uint16_t imap_bytes = (inodes + 7) / 8;
+
+    // 在位图中查找第一个空闲i节点(从1开始，0是无效节点号)
+    for (uint16_t i = 0; i < imap_bytes; i++)
+    {
+        if (sup_blk->inode_map[i] != 0xFF)
+        { // 不是全1，说明有空闲i节点
+            // 查找第一个为0的位
+            for (int j = 0; j < 8; j++)
+            {
+                if (!(sup_blk->inode_map[i] & (1 << j)))
+                {
+                    uint16_t ino = i * 8 + j; // i节点号从1开始
+
+                    // 检查i节点号是否有效
+                    if (ino > inodes)
+                    {
+                        return -1; // 无效的i节点号
+                    }
+
+                    // 标记该i节点为已使用
+                    sup_blk->inode_map[i] |= (1 << j);
+                    if (ino == 0)
+                    {
+                        continue;
+                    }
+                    return ino; // 返回分配的i节点号
+                }
+            }
+        }
+    }
+
+    return -1; // 没有空闲i节点可用
+}
+/**
+ * @brief 释放一个i节点
+ * @param major 主设备号
+ * @param minor 次设备号
+ * @param ino 要释放的i节点号(从1开始)
+ * @return 成功返回0，失败返回-1
+ */
+static int minix_inode_free(dev_t dev, int ino)
+{
+    int major = MAJOR(dev);
+    int minor = MINOR(dev);
+    minix_super_t *sup_blk = minix_get_super(dev);
+    if (!sup_blk)
+    {
+        dbg_error("get major=%d,minor=%d super desc failed\r\n", major, minor);
+        return -1;
+    }
+
+    // 检查超级块是否有效
+    if (sup_blk->data == NULL || sup_blk->inode_map == NULL)
+    {
+        return -1;
+    }
+
+    // 检查i节点号是否有效
+    if (ino < 1 || ino > sup_blk->data->inodes)
+    {
+        return -1;
+    }
+
+    // 计算位图中的位置
+    uint16_t bit_offset = ino; // i节点号从1开始，位图从0开始
+    uint16_t byte_offset = bit_offset / 8;
+    uint8_t bit_mask = 1 << (bit_offset % 8);
+
+    // 检查该i节点是否已经被释放
+    if (!(sup_blk->inode_map[byte_offset] & bit_mask))
+    {
+        return -1; // 该i节点已经是空闲状态
+    }
+
+    // 清除位图中的位
+    sup_blk->inode_map[byte_offset] &= ~bit_mask;
+    return 0;
+}
+static minix_inode_t *minix_inode_open(dev_t dev, int nr)
 {
     int ret;
     minix_inode_t *inode = minix_inode_find(dev, nr);
@@ -125,17 +233,19 @@ minix_inode_t *minix_inode_open(dev_t dev, int nr)
         inode->base.dev = dev;
         inode->base.nr = nr;
         inode->base.ops = &minix_inode_opts;
-        inode->base.ref++;
         inode->base.type = FS_MINIX;
         return inode;
     }
-    inode = minix_inode_alloc(dev, nr);
+    inode = minix_inode_create(dev, nr);
     ret = minix_inode_getinfo(inode, dev, nr);
-    ASSERT(ret >= 0);
+    if (ret < 0)
+    {
+        dbg_error("inode map not alloc\r\n");
+        return NULL;
+    }
     inode->base.dev = dev;
     inode->base.nr = nr;
     inode->base.ops = &minix_inode_opts;
-    inode->base.ref++;
     inode->base.type = FS_MINIX;
     return inode;
 }
@@ -148,7 +258,7 @@ minix_inode_t *minix_inode_open(dev_t dev, int nr)
  * @param read_size 要读取的字节数
  * @return 成功返回实际读取的字节数，失败返回-1
  */
-int minix_inode_read(minix_inode_t *inode, char *buf, int buf_size, int whence, int read_size)
+static int minix_inode_read(minix_inode_t *inode, char *buf, int buf_size, int whence, int read_size)
 {
     if (!inode || !buf || buf_size <= 0 || whence < 0 || read_size < 0)
     {
@@ -230,7 +340,7 @@ int minix_inode_read(minix_inode_t *inode, char *buf, int buf_size, int whence, 
  * @param write_size 要写入的字节数
  * @return 成功返回实际写入的字节数，失败返回-1
  */
-int minix_inode_write(minix_inode_t *inode, const char *buf, int buf_size, int whence, int write_size)
+static int minix_inode_write(minix_inode_t *inode, const char *buf, int buf_size, int whence, int write_size)
 {
     if (!inode || !buf || buf_size <= 0 || whence < 0 || write_size < 0)
     {
@@ -309,7 +419,7 @@ int minix_inode_write(minix_inode_t *inode, const char *buf, int buf_size, int w
  * @param new_size 新的文件大小
  * @return 成功返回0，失败返回-1
  */
-int minix_inode_truncate(minix_inode_t *inode, uint32_t new_size)
+static int minix_inode_truncate(minix_inode_t *inode, uint32_t new_size)
 {
     if (!inode || !inode->data)
     {
@@ -475,6 +585,184 @@ int minix_inode_truncate(minix_inode_t *inode, uint32_t new_size)
     minix_inode->mtime = sys_time(NULL);
     return 0;
 }
-inode_opts_t minix_inode_opts = {
 
+/**
+ * @brief 给一个目录类型的inode，找到目录下的name
+ * @param name为null就按照nr找，nr为0就按照name找，全部为0报错
+ * @return 找到返回0  没找到返回<0
+ */
+static int find_entry(minix_inode_t *inode, const char *name, struct dirent *entry)
+{
+    if (!inode || !entry)
+    {
+        return -1; // 参数错误
+    }
+    int ret;
+    if (!name)
+    {
+        return -2; // 参数错误，name和nr不能同时为0
+    }
+    mode_t mode = inode->data->mode;
+    // 如果不是目录，找不了
+    if (!ISDIR(mode))
+    {
+        dbg_error("current inode not dir\r\n");
+        return -1;
+    }
+    // 读取目录内容
+    int entry_nr = inode->data->size / sizeof(minix_dentry_t);
+    minix_dentry_t *start = (minix_dentry_t *)kmalloc(inode->data->size);
+
+    minix_inode_read(inode, start, inode->data->size, 0, inode->data->size);
+    if (ret <= 0)
+    {
+        return -3; // 读取失败
+    }
+
+    // 遍历目录项
+    for (int i = 0; i < entry_nr; i++, start++)
+    {
+        if (strncmp(start->name, name, strlen(name)) == 0)
+        {
+            strcpy(entry->name, start->name);
+            entry->nr = start->nr;
+            kfree(start);
+            return i;
+        }
+    }
+    kfree(start);
+    return -4; // 未找到
+}
+/**
+ * @brief 向inode节点中添加一个条目
+ */
+static int add_entry(minix_inode_t *inode, struct dirent *dentry)
+{
+    uint16_t mode = inode->data->mode;
+    // 如果不是目录，找不了
+    if (!ISDIR(mode))
+    {
+        dbg_error("current inode not dir\r\n");
+        return -1;
+    }
+    const char *name = dentry->name;
+    int ino = dentry->nr;
+    minix_dentry_t *entry = (minix_dentry_t *)kmalloc(sizeof(minix_dentry_t));
+    int entry_nr = inode->data->size / sizeof(minix_dentry_t);
+    int whence = entry_nr * sizeof(minix_dentry_t);
+    strncpy(entry->name, name, strlen(name));
+    entry->nr = ino;
+    // 添加目录项
+    int ret = minix_inode_write(inode, entry, sizeof(minix_dentry_t), whence, sizeof(minix_dentry_t));
+    if (ret < 0)
+    {
+        dbg_error("write fail\r\n");
+        kfree(entry);
+        return -2;
+    }
+    kfree(entry);
+    return 0;
+}
+
+static int delete_entry(minix_inode_t *inode, struct dirent *entry)
+{
+    int ret = find_entry(inode, entry->name, NULL);
+    if (ret < 0)
+    {
+        dbg_error("Entry not found\r\n");
+        return -1;
+    }
+    // 从目录中删除条目
+    int entry_size = sizeof(minix_dentry_t);
+    int entry_count = inode->data->size / entry_size;
+    if (ret == entry_count - 1)
+    {
+        // 如果是最后一个条目，直接截断
+        inode->data->size -= entry_size;
+    }
+    // 否则用最后一个条目覆盖
+    else
+    {
+        minix_dentry_t last_entry;
+        if (minix_inode_read(inode, (char *)&last_entry, entry_size,
+                             (entry_count - 1) * entry_size, entry_size) < 0)
+        {
+            return -7;
+        }
+
+        if (minix_inode_write(inode, (char *)&last_entry, entry_size,
+                              ret * entry_size, entry_size) < 0)
+        {
+            return -8;
+        }
+
+        inode->data->size -= entry_size;
+    }
+    return 0;
+}
+/**
+ * @brief 获取一个分区的根目录inode
+ * @param major 主设备号
+ * @param minor 次设备号
+ * @return 成功返回根目录的inode指针，失败返回NULL
+ */
+minix_inode_t *minix_get_dev_root_inode(dev_t dev)
+{
+    int ret;
+    // 获取超级块
+    int major = MAJOR(dev);
+    int minor = MINOR(dev);
+    minix_super_t *sup_blk = minix_get_super(dev);
+    if (!sup_blk || !sup_blk->data || !sup_blk->inode_map)
+    {
+        dbg_error("Failed to get super block or inode map\r\n");
+        return NULL;
+    }
+
+    // 根目录的 inode 号通常是 1
+    uint16_t root_ino = 1;
+
+    // 检查根目录 inode 是否已分配
+    uint16_t byte_offset = root_ino / 8;
+    uint8_t bit_mask = 1 << (root_ino % 8);
+    if (!(sup_blk->inode_map[byte_offset] & bit_mask))
+    {
+        dbg_error("Root inode not allocated\r\n");
+        return NULL;
+    }
+
+    // 创建并返回根目录 inode 描述符
+    minix_inode_t *root_inode = minix_inode_open(dev, root_ino);
+
+    if (!root_inode)
+    {
+        dbg_error("Failed to find root inode\r\n");
+        return NULL;
+    }
+    ret = minix_inode_getinfo(root_inode, dev, root_ino);
+    if (ret < 0)
+    {
+        dbg_error("get info failz\r\n");
+        return NULL;
+    }
+    if (strlen(root_inode->base.name) == 0)
+    {
+        strcpy(root_inode->base.name, "/");
+    }
+    return root_inode;
+}
+inode_opts_t minix_inode_opts = {
+    .find_entry = find_entry,                       // 查找目录项
+    .add_entry = add_entry,                         // 添加目录项
+    .delete_entry = delete_entry,                   // 删除目录项
+    .read = minix_inode_read,                       // 读取文件内容
+    .write = minix_inode_write,                     // 写入文件内容
+    .truncate = minix_inode_truncate,               // 截断文件
+    .getinfo = minix_inode_getinfo,                 // 获取inode磁盘缓冲区中的信息
+    .create = minix_inode_create,                   // 创建inode并入树
+    .destroy = minix_inode_destory,                 // 从树中移除并释放inode_t结构体
+    .free = minix_inode_free,                       // 位图释放inode
+    .alloc = minix_inode_alloc,                     // 位图分配inode
+    .open = minix_inode_open,                       // 打开并返回inode
+    .get_dev_root_inode = minix_get_dev_root_inode, // 获取minix文件系统根目录inode的方式
 };

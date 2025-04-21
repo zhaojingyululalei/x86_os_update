@@ -3,6 +3,11 @@
 #include "fs/fs.h"
 #include "stdlib.h"
 #include "cpu_instr.h"
+#include "fs/inode.h"
+#include "fs/file.h"
+#include "fs/minix/minix_fs.h"
+#include "mem/kmalloc.h"
+#include "string.h"
 #define DISK_SECTOR_SIZE 512
 uint8_t tmp_app_buffer[512 * 1024];
 uint8_t *tmp_pos;
@@ -106,7 +111,7 @@ int sys_fsync(int fd)
 int sys_opendir(const char *path, DIR *dir)
 {
 }
-int sys_readdir(DIR *dir, dirent_t *dirent)
+int sys_readdir(DIR *dir, struct dirent *dirent)
 {
 }
 int sys_closedir(DIR *dir)
@@ -126,13 +131,73 @@ int sys_mkdir(const char *path, uint16_t mode)
 int sys_rmdir(const char *path)
 {
 }
+static list_t mount_list;
+/**
+ * @brief 根据绝对路径找挂载点，匹配最长的绝对路径
+ * @note 例如：传入绝对路径/home/zhao/test.txt   / 和 /home如果都是挂载点，那么选择/home 
+ */
+mount_point_t* find_point_by_abspath(const char* abs_path)
+{
+    mount_point_t* ret  = NULL;
+    list_node_t* cur = mount_list.first;
+    while (cur)
+    {
+        mount_point_t* point = list_node_parent(cur,mount_point_t,node);
+        if(strcmp(abs_path,point->point_path)==0 )
+        {
+            if(ret!=NULL &&strlen(point->point_path)>strlen(ret->point_path))
+            {
+                ret = point;
+            }
+        }
+        cur = cur->next;
+    }
+    return ret;
+}
+int sys_mount(const char *path, int major, int minor, fs_type_t type)
+{
+
+}
+int sys_unmount(const char *path)
+{
+
+}
 extern void fs_buffer_init(void);
-//extern void file_table_init(void);
+/**挂载根文件系统 */ 
+static void mount_root_fs(void)
+{
+    int major = FS_ROOT_MAJOR;
+    int minor = FS_ROOT_MINOR;
+    dev_t dev = MKDEV(major,minor);
+    fs_type_t root_type = FS_ROOT_TYPE;
+    inode_t* root_inode = inode_open(dev,1);
+    root_inode->mount = true;
+    strcpy(root_inode->name,"/");
+    
+    mount_point_t* point = (mount_point_t*)kmalloc(sizeof(mount_point_t));
+    point->dev = dev;
+    point->type = FS_ROOT_TYPE;
+    strcpy(point->point_path,"/");
+    list_insert_last(&mount_list,&point->node);
+}
 void fs_init(void)
 {
     fs_buffer_init();
-    //file_table_init();
+    inode_tree_init();
+    file_table_init();
+    minixfs_init();
+    mount_root_fs();
 }
 void fs_register(fs_type_t type, fs_op_t *opt)
 {
+}
+/**
+ * @brief 获取根文件系统节点
+ */
+inode_t* get_root_inode(void)
+{
+    int major = FS_ROOT_MAJOR;
+    int minor = FS_ROOT_MINOR;
+    dev_t dev = MKDEV(major,minor);
+    return get_dev_root_inode(dev);
 }

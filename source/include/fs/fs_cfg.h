@@ -17,4 +17,9 @@ typedef enum _fs_type_t {
     FS_FAT32 = 0xC,
 }fs_type_t;
 
+//根文件系统所在设备
+#define FS_ROOT_MAJOR   7
+#define FS_ROOT_MINOR   16
+#define FS_ROOT_TYPE    0x83 //minix
+
 #endif

@@ -18,6 +18,9 @@
         "ds_comm.h": "c",
         "buffer.h": "c",
         "inode.h": "c",
-        "minix_cfg.h": "c"
+        "minix_cfg.h": "c",
+        "cpu_instr.h": "c",
+        "types.h": "c",
+        "stdlib.h": "c"
     }
 }

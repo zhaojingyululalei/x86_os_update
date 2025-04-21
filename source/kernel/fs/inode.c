@@ -1,19 +1,20 @@
 #include "fs/inode.h"
-
+#include "dev/dev.h"
+#include "dev/ide.h"
 rb_tree_t inode_tree;
 static int inode_compare(void *a, void *b)
 {
-    inode_t* ia = (inode_t*)a;
-    inode_t* ib = (inode_t*)b;
-    
-    if(ia->dev!= ib->dev)
+    inode_t *ia = (inode_t *)a;
+    inode_t *ib = (inode_t *)b;
+
+    if (ia->dev != ib->dev)
     {
         return ia->dev - ib->dev;
     }
 
-    if(ia->nr!=ib->nr)
+    if (ia->nr != ib->nr)
     {
-        return ia->nr-  ib->nr;
+        return ia->nr - ib->nr;
     }
     return 0;
 }
@@ -35,29 +36,103 @@ int inode_compare_key(const void *key, const void *data)
     inode_t *ib = (inode_t *)data;
     dev_t dev = arr[0];
     int nr = arr[1];
-    if(dev != ib->dev)
+    if (dev != ib->dev)
     {
         return dev - ib->dev;
     }
-    if(nr != ib->nr)
+    if (nr != ib->nr)
     {
         return nr - ib->nr;
     }
     return 0;
 }
 
-static inode_opts_t* fs_inode_opts[0xFF];
 
-void register_inode_operations(inode_opts_t* opts,fs_type_t type)
+static inode_opts_t *fs_inode_opts[0xFF];
+void register_inode_operations(inode_opts_t *opts, fs_type_t type)
 {
     fs_inode_opts[type] = opts;
-    
 }
 void inode_tree_init(void)
 {
     rb_tree_init(&inode_tree, inode_compare, inode_get_rbnode, rbnode_get_inode, NULL);
 }
-rb_tree_t* get_inode_tree(void)
+rb_tree_t *get_inode_tree(void)
 {
     return &inode_tree;
+}
+
+
+
+inode_t* inode_open(dev_t dev,int nr)
+{
+    fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->open(dev,nr);
+}
+inode_t* inode_create(dev_t dev, int nr) {
+    fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->create(dev, nr);
+}
+
+void inode_destroy(inode_t *inode) {
+    if (inode == NULL) return;
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    fs_inode_opts[type]->destroy(inode);
+}
+
+int inode_free(dev_t dev, int nr) {
+    fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->free(dev, nr);
+}
+
+int inode_alloc(dev_t dev) {
+    fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->alloc(dev);
+}
+
+int inode_read(inode_t *inode, char *buf, int buf_size, int whence, int read_size) {
+    if (inode == NULL) return -1;
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->read(inode, buf, buf_size, whence, read_size);
+}
+
+int inode_write(inode_t *inode, const char *buf, int buf_size, int whence, int write_size) {
+    if (inode == NULL) return -1;
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->write(inode, buf, buf_size, whence, write_size);
+}
+
+int inode_truncate(inode_t *inode, uint32_t new_size) {
+    if (inode == NULL) return -1;
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->truncate(inode, new_size);
+}
+
+int inode_getinfo(inode_t *inode, dev_t dev, int nr) {
+    if (inode == NULL) return -1;
+    fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->getinfo(inode, dev, nr);
+}
+
+int inode_find_entry(inode_t *inode, const char *name, struct dirent *entry) {
+    if (inode == NULL) return -1;
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->find_entry(inode, name, entry);
+}
+
+int inode_add_entry(inode_t *inode, struct dirent *entry) {
+    if (inode == NULL) return -1;
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->add_entry(inode, entry);
+}
+
+int inode_delete_entry(inode_t *inode, struct dirent *entry) {
+    if (inode == NULL) return -1;
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->delete_entry(inode, entry);
+}
+inode_t *get_dev_root_inode(dev_t dev)
+{
+    fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->get_dev_root_inode(dev);
 }
