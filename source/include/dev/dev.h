@@ -78,6 +78,7 @@ int dev_read (dev_t devfd,  char * buf, int size,int *pos);
 int dev_write (dev_t devfd,  char * buf, int size,int *pos);
 int dev_control (dev_t devfd, int cmd, int arg0, int arg1);
 void dev_close (dev_t devfd);
+int dev_lseek(dev_t devfd,int* pos,int offset,int whence);
 int dev_install(device_type_t type,int major,int minor,const char* name,void* data,dev_ops_t* ops);
 void dev_show_all(void);
 

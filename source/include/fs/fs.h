@@ -6,19 +6,7 @@
 #include "fs/stat.h"
 #include "fs/inode.h"
 #include "fs/dirent.h"
-typedef enum whence_t
-{
-    SEEK_SET = 1, // 直接设置偏移
-    SEEK_CUR,     // 当前位置偏移
-    SEEK_END      // 结束位置偏移
-} whence_t;
-// 文件系统类型
-typedef enum _fs_type_t {
-    FS_NONE,
-    FS_DEVFS,
-    FS_MINIX = 0x83,
-    FS_FAT32 = 0xC,
-}fs_type_t;
+
 /**
  * @brief 文件系统操作接口
  */
@@ -39,7 +27,6 @@ typedef struct _fs_op_t {
     int (*link)(const char *old_path, const char *new_path);
     int (*unlink) (const char * path);
 }fs_op_t;
-
 int sys_open(const char *path, int flags, mode_t mode);
 int sys_read(int fd, char *buf, int len);
 

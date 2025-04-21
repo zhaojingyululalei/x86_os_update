@@ -24,11 +24,14 @@ int devfs_write(file_t *file, char *buf, int size)
 }
 int devfs_lseek(file_t* file,int offset,int whence)
 {
-    
+    dev_t dev = file->dev;
+    return dev_lseek(dev,&file->pos,offset,whence);
 
 }
 void devfs_close(file_t *file)
 {
+    dev_t dev = file->dev;
+    return dev_close(dev);
     // 函数的实现
 }
 
@@ -36,11 +39,15 @@ void devfs_close(file_t *file)
 
 int devfs_stat(file_t *file, file_stat_t *st)
 {
+    dev_t dev = file->dev;
+    
     // 函数的实现
 }
 
 int devfs_ioctl(file_t *file, int cmd, int arg0, int arg1)
 {
+    dev_t dev = file->dev;
+    return dev_control(dev,cmd,arg0,arg1);
     // 函数的实现
 }
 fs_op_t devfs_opts = {

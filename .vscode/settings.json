@@ -14,6 +14,10 @@
         "dirent.h": "c",
         "errno.h": "c",
         "dev.h": "c",
-        "devfs.h": "c"
+        "devfs.h": "c",
+        "ds_comm.h": "c",
+        "buffer.h": "c",
+        "inode.h": "c",
+        "minix_cfg.h": "c"
     }
 }
