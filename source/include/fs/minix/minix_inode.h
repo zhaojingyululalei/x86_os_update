@@ -29,4 +29,6 @@ typedef struct _minix_inode_t
 int minix_dblk_alloc(int major, int minor);
 int minix_dblk_free(int major, int minor, int blk);
 int inode_get_block(minix_inode_t *inode, int fblock, bool create);
+ 
+extern inode_opts_t minix_inode_opts;
 #endif

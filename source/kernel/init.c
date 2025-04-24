@@ -24,7 +24,8 @@ extern void fs_init(void);
 extern void kbd_init(void);
 extern  void devfs_init(void);
 extern void tty_init(void);
-boot_info_t *os_info;
+extern void ramdisk_init(void);
+boot_info_t *os_info; //启动参数
 static void test(void)
 {
     dev_show_all();
@@ -58,7 +59,7 @@ void kernel_init(boot_info_t *boot_info)
     tty_init();
     irq_enable_global();
     ide_init(); //用到了中断
-    
+    ramdisk_init();
     fs_init();//用到了ide
 
     test();

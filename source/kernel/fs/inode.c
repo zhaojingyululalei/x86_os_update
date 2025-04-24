@@ -1,6 +1,7 @@
 #include "fs/inode.h"
 #include "dev/dev.h"
 #include "dev/ide.h"
+#include "inode.h"
 rb_tree_t inode_tree;
 static int inode_compare(void *a, void *b)
 {
@@ -64,10 +65,10 @@ rb_tree_t *get_inode_tree(void)
 
 
 
-inode_t* inode_open(dev_t dev,int nr)
+inode_t* inode_get(dev_t dev,int nr)
 {
     fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
-    return fs_inode_opts[type]->open(dev,nr);
+    return fs_inode_opts[type]->get(dev,nr);
 }
 inode_t* inode_create(dev_t dev, int nr) {
     fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
@@ -135,4 +136,34 @@ inode_t *get_dev_root_inode(dev_t dev)
 {
     fs_type_t type = dev_control(dev, PART_CMD_FS_TYPE, 0, 0);
     return fs_inode_opts[type]->get_dev_root_inode(dev);
+}
+int inode_mkdir(inode_t *inode, const char *dir_name, mode_t mode)
+{
+
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->mkdir(inode,dir_name,mode);
+}
+
+inode_t *inode_open(inode_t *inode, const char *file_name, uint32_t flag, mode_t mode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->open(inode,file_name,flag,mode);
+}
+
+void inode_fsync(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->fsync(inode);
+}
+
+void inode_stat(inode_t *inode, file_stat_t *state)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->stat(inode,state);
+}
+
+int inode_rmdir(inode_t *inode, const char *name)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->rmdir(inode,name);
 }

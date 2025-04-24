@@ -21,6 +21,10 @@
         "minix_cfg.h": "c",
         "cpu_instr.h": "c",
         "types.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "gbitmap.h": "c",
+        "stat.h": "c",
+        "ide.h": "c",
+        "ramdisk.h": "c"
     }
 }
