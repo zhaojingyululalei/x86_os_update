@@ -34,6 +34,7 @@ void file_free (file_t * file) {
     sys_mutex_lock(&file_alloc_mutex);
     if (file->ref) {
         file->ref--;
+        
     }
     sys_mutex_unlock(&file_alloc_mutex);
 }

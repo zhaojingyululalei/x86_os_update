@@ -32,6 +32,7 @@ typedef struct _fs_op_t {
     int (*umount)(const char* path);
 
 }fs_op_t;
+inode_t* sys_namei(const char *path);
 int sys_open(const char *path, int flags, mode_t mode);
 int sys_read(int fd, char *buf, int len);
 
@@ -65,6 +66,9 @@ typedef struct _mount_point_t {
     dev_t orign_dev; //原来的设备号
     fs_type_t orign_type;//原来的文件系统类型
 
+    inode_t* ipoint;//挂载到哪个inode上了
     list_node_t node;
 }mount_point_t;
+mount_point_t* find_point_by_abspath(const char* abs_path);
+mount_point_t* find_point_by_inode(inode_t* inode);
 #endif

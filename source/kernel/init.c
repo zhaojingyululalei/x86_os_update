@@ -29,7 +29,7 @@ boot_info_t *os_info; //启动参数
 static void test(void)
 {
     dev_show_all();
-    inode_test();
+    //inode_test();
     // devfs_test();
     //buffer_test();
     //tty_test();

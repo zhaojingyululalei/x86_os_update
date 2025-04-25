@@ -17,4 +17,5 @@ typedef enum _ramdisk_cmd_t{
     RAMDISK_CMD_GET_FS_TYPE,
     RAMDISK_CMD_SET_FS_TYPE,
 }ramdisk_cmd_t;
+
 #endif

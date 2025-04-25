@@ -132,6 +132,15 @@ static void ram_disk_close(dev_t devfd) {
     dbg_info("Close ram disk %s success\r\n", ram_disk->name);
 }
 
+
+dev_ops_t ram_disk_ops = {
+    .open = ram_disk_open,
+    .read = ram_disk_read,
+    .write = ram_disk_write,
+    .control = ram_disk_control,
+    .lseek = ram_disk_lseek,
+    .close = ram_disk_close
+};
 void ramdisk_init(void)
 {
     uint32_t size = 5*1024*1024;
@@ -147,12 +156,3 @@ void ramdisk_init(void)
     }
     
 }
-
-dev_ops_t ram_disk_ops = {
-    .open = ram_disk_open,
-    .read = ram_disk_read,
-    .write = ram_disk_write,
-    .control = ram_disk_control,
-    .lseek = ram_disk_lseek,
-    .close = ram_disk_close
-};

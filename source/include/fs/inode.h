@@ -34,9 +34,19 @@ typedef struct _inode_opts_t
     inode_t *(*get_dev_root_inode)(dev_t dev);                                               // 获取特定文件系统根目录inode的方式
     int (*mkdir)(inode_t *parent_inode, const char *dir_name, mode_t mode);                  // 创建目录
     inode_t *(*open)(inode_t *inode, const char *file_name, uint32_t flag, mode_t mode);     // 打开文件
-    void (*fsync)(inode_t* inode);
-    void (*stat)(inode_t* inode,file_stat_t* state);
-    int (*rmdir)(inode_t* inode, const char* dir_name);
+    void (*fsync)(inode_t *inode);
+    void (*stat)(inode_t *inode, file_stat_t *state);
+    int (*rmdir)(inode_t *inode, const char *dir_name);
+    int (*root_nr)(void);
+    mode_t (*acquire_mode)(inode_t *inode);
+    uint16_t (*acquire_uid)(inode_t *inode);
+    uint32_t (*acquire_size)(inode_t *inode);
+    uint32_t (*acquire_mtime)(inode_t *inode);
+    uint32_t (*acquire_atime)(inode_t *inode);
+    uint32_t (*acquire_ctime)(inode_t *inode);
+    uint8_t (*acquire_gid)(inode_t *inode);
+    uint8_t (*acquire_nlinks)(inode_t *inode);
+
 } inode_opts_t;
 void register_inode_operations(inode_opts_t *opts, fs_type_t type);
 void inode_tree_init(void);
@@ -57,8 +67,17 @@ int inode_add_entry(inode_t *inode, struct dirent *entry);
 int inode_delete_entry(inode_t *inode, struct dirent *entry);
 inode_t *get_dev_root_inode(dev_t dev);
 int inode_mkdir(inode_t *inode, const char *dir_name, mode_t mode);
-inode_t* inode_open(inode_t *inode, const char *file_name, uint32_t flag, mode_t mode);
-void inode_fsync(inode_t* inode);
-void inode_stat(inode_t* inode,file_stat_t* state);
-int inode_rmdir(inode_t* inode,const char* name);
+inode_t *inode_open(inode_t *inode, const char *file_name, uint32_t flag, mode_t mode);
+void inode_fsync(inode_t *inode);
+void inode_stat(inode_t *inode, file_stat_t *state);
+int inode_rmdir(inode_t *inode, const char *name);
+int inode_root_nr(fs_type_t type);
+mode_t inode_acquire_mode(inode_t *inode);
+uint16_t inode_acquire_uid(inode_t *inode);
+uint32_t inode_acquire_size(inode_t *inode);
+uint32_t inode_acquire_mtime(inode_t *inode);
+uint32_t inode_acquire_atime(inode_t *inode);
+uint32_t inode_acquire_ctime(inode_t *inode);
+uint8_t inode_acquire_gid(inode_t *inode);
+uint8_t inode_acquire_nlinks(inode_t *inode);
 #endif

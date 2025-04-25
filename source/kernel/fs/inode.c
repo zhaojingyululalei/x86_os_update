@@ -1,6 +1,7 @@
 #include "fs/inode.h"
 #include "dev/dev.h"
 #include "dev/ide.h"
+#include "fs/inode.h"
 #include "inode.h"
 rb_tree_t inode_tree;
 static int inode_compare(void *a, void *b)
@@ -166,4 +167,45 @@ int inode_rmdir(inode_t *inode, const char *name)
 {
     fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
     return fs_inode_opts[type]->rmdir(inode,name);
+}
+
+int inode_root_nr(fs_type_t type)
+{
+    return fs_inode_opts[type]->root_nr();
+}
+
+uint16_t inode_acquire_uid(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->acquire_uid(inode);
+}
+uint32_t inode_acquire_size(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->acquire_size(inode);
+}
+uint32_t inode_acquire_mtime(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->acquire_mtime(inode);
+}
+uint32_t inode_acquire_atime(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->acquire_atime(inode);
+}
+uint32_t inode_acquire_ctime(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->acquire_ctime(inode);
+}
+uint8_t inode_acquire_gid(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->acquire_gid(inode);
+}
+uint8_t inode_acquire_nlinks(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->acquire_nlinks(inode);
 }

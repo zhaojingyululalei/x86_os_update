@@ -14,6 +14,7 @@
 #include "fs/dirent.h"
 #include "tools/gbitmap.h"
 #include "task/sche.h"
+
 /**
  * @brief 分配一个inode并加入树中
  */
@@ -22,6 +23,7 @@ static minix_inode_t *minix_inode_create(dev_t dev, int nr)
     minix_inode_t *inode = (minix_inode_t *)kmalloc(sizeof(minix_inode_t));
     inode->base.dev = dev;
     inode->base.nr = nr;
+    inode->base.ops = &minix_inode_opts;
     rb_tree_t *inode_tree = get_inode_tree();
     rb_tree_insert(inode_tree, inode);
     return inode;
@@ -881,7 +883,7 @@ int minix_inode_rmdir(minix_inode_t* inode, const char* dir_name) {
  * @param mode 文件权限模式
  * @return 成功返回文件的 inode 指针，失败返回 NULL
  */
-minix_inode_t* minix_inode_open(minix_inode_t* inode, const char* file_name, uint32_t flag, mode_t mode) {
+static minix_inode_t* minix_inode_open(minix_inode_t* inode, const char* file_name, uint32_t flag, mode_t mode) {
     if (!inode || !file_name) {
         dbg_error("Invalid parameters\r\n");
         return NULL;
@@ -892,12 +894,23 @@ minix_inode_t* minix_inode_open(minix_inode_t* inode, const char* file_name, uin
         dbg_error("Parent inode is not a directory\r\n");
         return NULL;
     }
-
+    minix_inode_t* target = NULL;
     // 检查文件是否已经存在
     struct dirent entry;
     if (find_entry(inode, file_name, &entry) >= 0) {
         // 文件存在，返回对应的 inode
-        return minix_inode_get(inode->base.dev, entry.nr);
+
+        target = minix_inode_get(inode->base.dev, entry.nr);
+        if(ISDIR(target->data->mode))
+        {
+            return NULL;
+        }else{
+            if((flag & O_TRUNC) && (flag &O_RDONLY||flag &O_RDWR ||flag &O_WRONLY))
+            {
+                minix_inode_truncate(target,0);
+            }
+            return target;
+        }
     }
 
     // 文件不存在，检查是否需要创建
@@ -940,7 +953,7 @@ minix_inode_t* minix_inode_open(minix_inode_t* inode, const char* file_name, uin
     return new_inode;
 }
 
-void minix_inode_fsync(minix_inode_t* inode)
+static void minix_inode_fsync(minix_inode_t* inode)
 {
     dev_t dev = inode->base.dev;
     int major = MAJOR(dev);
@@ -999,7 +1012,7 @@ void minix_inode_fsync(minix_inode_t* inode)
  * @param inode 目标 inode
  * @param state 用于存储状态信息的结构体
  */
-void minix_inode_state(minix_inode_t* inode, file_stat_t* state) {
+static void minix_inode_state(minix_inode_t* inode, file_stat_t* state) {
     if (!inode || !state) {
         dbg_error("Invalid parameters\r\n");
         return;
@@ -1022,6 +1035,118 @@ void minix_inode_state(minix_inode_t* inode, file_stat_t* state) {
     state->mtime = inode->data->mtime; // 修改时间
     state->ctime = inode->data->mtime; // 使用修改时间作为节点修改时间
 }
+/**
+ * @brief minix文件系统的根inode是1 不是0
+ */
+static int minix_root_nr(void)
+{
+    return 1;
+}
+mode_t minix_acquire_mode(minix_inode_t *inode)
+{
+    return inode->data->mode;
+}
+
+
+/**
+ * @brief 获取 inode 的用户 ID
+ * @param inode 目标 inode
+ * @return 用户 ID
+ */
+static uint16_t minix_acquire_uid(inode_t *inode) {
+    if (!inode) {
+        dbg_error("Invalid inode\r\n");
+        return 0;
+    }
+    minix_inode_t *minix_inode = (minix_inode_t *)inode;
+    return minix_inode->data->uid;
+}
+
+/**
+ * @brief 获取 inode 的文件大小
+ * @param inode 目标 inode
+ * @return 文件大小
+ */
+static uint32_t minix_acquire_size(inode_t *inode) {
+    if (!inode) {
+        dbg_error("Invalid inode\r\n");
+        return 0;
+    }
+    minix_inode_t *minix_inode = (minix_inode_t *)inode;
+    return minix_inode->data->size;
+}
+
+/**
+ * @brief 获取 inode 的最后修改时间
+ * @param inode 目标 inode
+ * @return 最后修改时间
+ */
+static uint32_t minix_acquire_mtime(inode_t *inode) {
+    if (!inode) {
+        dbg_error("Invalid inode\r\n");
+        return 0;
+    }
+    minix_inode_t *minix_inode = (minix_inode_t *)inode;
+    return minix_inode->data->mtime;
+}
+
+/**
+ * @brief 获取 inode 的最后访问时间
+ * @param inode 目标 inode
+ * @return 最后访问时间
+ */
+static uint32_t minix_acquire_atime(inode_t *inode) {
+    if (!inode) {
+        dbg_error("Invalid inode\r\n");
+        return 0;
+    }
+    minix_inode_t *minix_inode = (minix_inode_t *)inode;
+    return 0;
+}
+
+/**
+ * @brief 获取 inode 的最后状态改变时间
+ * @param inode 目标 inode
+ * @return 最后状态改变时间
+ */
+static uint32_t minix_acquire_ctime(inode_t *inode) {
+    if (!inode) {
+        dbg_error("Invalid inode\r\n");
+        return 0;
+    }
+    minix_inode_t *minix_inode = (minix_inode_t *)inode;
+    return 0;
+}
+
+/**
+ * @brief 获取 inode 的组 ID
+ * @param inode 目标 inode
+ * @return 组 ID
+ */
+static uint8_t minix_acquire_gid(inode_t *inode) {
+    if (!inode) {
+        dbg_error("Invalid inode\r\n");
+        return 0;
+    }
+    minix_inode_t *minix_inode = (minix_inode_t *)inode;
+    return minix_inode->data->gid;
+}
+
+/**
+ * @brief 获取 inode 的硬链接数
+ * @param inode 目标 inode
+ * @return 硬链接数
+ */
+static uint8_t minix_acquire_nlinks(inode_t *inode) {
+    if (!inode) {
+        dbg_error("Invalid inode\r\n");
+        return 0;
+    }
+    minix_inode_t *minix_inode = (minix_inode_t *)inode;
+    return minix_inode->data->nlinks;
+}
+
+// 补充到 inode_opts_t 结构体中
 inode_opts_t minix_inode_opts = {
     .find_entry = find_entry,                       // 查找目录项
     .add_entry = add_entry,                         // 添加目录项
@@ -1034,11 +1159,19 @@ inode_opts_t minix_inode_opts = {
     .destroy = minix_inode_destory,                 // 从树中移除并释放inode_t结构体
     .free = minix_inode_free,                       // 位图释放inode
     .alloc = minix_inode_alloc,                     // 位图分配inode
-    .get = minix_inode_get,                       // 打开并返回inode
+    .get = minix_inode_get,                         // 打开并返回inode
     .get_dev_root_inode = minix_get_dev_root_inode, // 获取minix文件系统根目录inode的方式
-    .mkdir = minix_inode_mkdir,                     //创建目录
-    .open = minix_inode_open,   //打开文件
-    .fsync = minix_inode_fsync, //同步文件
-    .stat = minix_inode_state, //获取文件状态
-    .rmdir = minix_inode_rmdir, //删除目录
+    .mkdir = minix_inode_mkdir,                     // 创建目录
+    .open = minix_inode_open,                       // 打开文件
+    .fsync = minix_inode_fsync,                     // 同步文件
+    .stat = minix_inode_state,                      // 获取文件状态
+    .rmdir = minix_inode_rmdir,                     // 删除目录
+    .root_nr = minix_root_nr,                       // 获取根inode
+    .acquire_uid = minix_acquire_uid,               // 获取用户 ID
+    .acquire_size = minix_acquire_size,             // 获取文件大小
+    .acquire_mtime = minix_acquire_mtime,           // 获取最后修改时间
+    .acquire_atime = minix_acquire_atime,           // 获取最后访问时间
+    .acquire_ctime = minix_acquire_ctime,           // 获取最后状态改变时间
+    .acquire_gid = minix_acquire_gid,               // 获取组 ID
+    .acquire_nlinks = minix_acquire_nlinks,         // 获取硬链接数
 };

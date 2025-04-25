@@ -6,7 +6,6 @@ typedef struct _file_t
 {
     union 
     {
-        dev_t dev;
         inode_t* inode;
         int sockfd;
     };
