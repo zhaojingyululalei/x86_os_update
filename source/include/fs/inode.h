@@ -16,6 +16,7 @@ typedef struct _inode_t
     rb_node_t rbnode;          // inode存放在树中
     char name[128];            // 文件名
     bool mount;                // 该inode是否被挂载
+    int ref;
 } inode_t;
 typedef struct _inode_opts_t
 {
@@ -34,6 +35,7 @@ typedef struct _inode_opts_t
     inode_t *(*get_dev_root_inode)(dev_t dev);                                               // 获取特定文件系统根目录inode的方式
     int (*mkdir)(inode_t *parent_inode, const char *dir_name, mode_t mode);                  // 创建目录
     inode_t *(*open)(inode_t *inode, const char *file_name, uint32_t flag, mode_t mode);     // 打开文件
+    void (*close)(inode_t* inode);
     void (*fsync)(inode_t *inode);
     void (*stat)(inode_t *inode, file_stat_t *state);
     int (*rmdir)(inode_t *inode, const char *dir_name);
@@ -46,7 +48,7 @@ typedef struct _inode_opts_t
     uint32_t (*acquire_ctime)(inode_t *inode);
     uint8_t (*acquire_gid)(inode_t *inode);
     uint8_t (*acquire_nlinks)(inode_t *inode);
-
+    void (*modify_nlinks)(inode_t* inode,int n);
 } inode_opts_t;
 void register_inode_operations(inode_opts_t *opts, fs_type_t type);
 void inode_tree_init(void);
@@ -68,6 +70,7 @@ int inode_delete_entry(inode_t *inode, struct dirent *entry);
 inode_t *get_dev_root_inode(dev_t dev);
 int inode_mkdir(inode_t *inode, const char *dir_name, mode_t mode);
 inode_t *inode_open(inode_t *inode, const char *file_name, uint32_t flag, mode_t mode);
+void inode_close(inode_t* inode);
 void inode_fsync(inode_t *inode);
 void inode_stat(inode_t *inode, file_stat_t *state);
 int inode_rmdir(inode_t *inode, const char *name);
@@ -80,4 +83,5 @@ uint32_t inode_acquire_atime(inode_t *inode);
 uint32_t inode_acquire_ctime(inode_t *inode);
 uint8_t inode_acquire_gid(inode_t *inode);
 uint8_t inode_acquire_nlinks(inode_t *inode);
+void inode_modify_nlinks(inode_t* inode,int n);
 #endif

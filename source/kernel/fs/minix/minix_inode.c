@@ -949,10 +949,14 @@ static minix_inode_t* minix_inode_open(minix_inode_t* inode, const char* file_na
     new_inode->data->nlinks = 1;          // 文件的链接数为1
     new_inode->data->size = 0;            // 初始大小为0
     new_inode->base.i_parent = inode;     // 设置父目录
-
+    new_inode->base.ref++;
     return new_inode;
 }
+static void minix_inode_close(minix_inode_t* inode)
+{
+    inode->base.ref--;
 
+}
 static void minix_inode_fsync(minix_inode_t* inode)
 {
     dev_t dev = inode->base.dev;
@@ -1145,6 +1149,10 @@ static uint8_t minix_acquire_nlinks(inode_t *inode) {
     minix_inode_t *minix_inode = (minix_inode_t *)inode;
     return minix_inode->data->nlinks;
 }
+static void minix_modify_nlinks(minix_inode_t* inode,int n)
+{
+    inode->data->nlinks = n;
+}
 
 // 补充到 inode_opts_t 结构体中
 inode_opts_t minix_inode_opts = {
@@ -1163,6 +1171,7 @@ inode_opts_t minix_inode_opts = {
     .get_dev_root_inode = minix_get_dev_root_inode, // 获取minix文件系统根目录inode的方式
     .mkdir = minix_inode_mkdir,                     // 创建目录
     .open = minix_inode_open,                       // 打开文件
+    .close = minix_inode_close,                     //关闭
     .fsync = minix_inode_fsync,                     // 同步文件
     .stat = minix_inode_state,                      // 获取文件状态
     .rmdir = minix_inode_rmdir,                     // 删除目录
@@ -1174,4 +1183,5 @@ inode_opts_t minix_inode_opts = {
     .acquire_ctime = minix_acquire_ctime,           // 获取最后状态改变时间
     .acquire_gid = minix_acquire_gid,               // 获取组 ID
     .acquire_nlinks = minix_acquire_nlinks,         // 获取硬链接数
+    .modify_nlinks = minix_modify_nlinks,
 };

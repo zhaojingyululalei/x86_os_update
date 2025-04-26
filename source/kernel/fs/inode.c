@@ -151,6 +151,12 @@ inode_t *inode_open(inode_t *inode, const char *file_name, uint32_t flag, mode_t
     return fs_inode_opts[type]->open(inode,file_name,flag,mode);
 }
 
+void inode_close(inode_t *inode)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->close(inode);
+}
+
 void inode_fsync(inode_t *inode)
 {
     fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
@@ -208,4 +214,10 @@ uint8_t inode_acquire_nlinks(inode_t *inode)
 {
     fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
     return fs_inode_opts[type]->acquire_nlinks(inode);
+}
+
+void inode_modify_nlinks(inode_t *inode, int n)
+{
+    fs_type_t type = dev_control(inode->dev, PART_CMD_FS_TYPE, 0, 0);
+    return fs_inode_opts[type]->modify_nlinks(inode,n);
 }

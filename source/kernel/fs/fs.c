@@ -402,6 +402,7 @@ int sys_close(int fd)
     mode_t mode = inode_acquire_mode(inode);
     if (ISREG(mode))
     {
+        inode_close(inode);
         file_free(file);
         if (file->ref == 0)
         {
@@ -488,38 +489,290 @@ int sys_lseek(int fd, int offset, int whence)
     return ret;
 }
 
-int sys_stat(int fd)
+int sys_stat(int fd,file_stat_t* stat)
 {
+    int ret;
+    file_t *file = task_file(fd);
+    if (!file)
+    {
+        return -1;
+    }
+
+    inode_t *inode = file->inode;
+    mode_t mode = inode_acquire_mode(inode);
+    if (ISREG(mode))
+    {
+        inode_stat(inode,stat);
+    }
+    else if (ISCHR(mode) || ISBLK(mode))
+    {
+        // 先把设备号读出来，然后再去读取设备
+        dev_t dev;
+
+        ret = inode_read(inode, &dev, sizeof(dev_t), 0, sizeof(dev_t));
+        if (ret < 0)
+        {
+            dbg_error("devfs failz\r\n");
+            return -1;
+        }
+        dbg_warning("unhandling\r\n");
+    }
+    else
+    {
+        dbg_warning("unhandling\r\n");
+    }
+
+    return ret;
 }
 int sys_ioctl(int fd, int cmd, int arg0, int arg1)
 {
+    int ret;
+    file_t *file = task_file(fd);
+    if (!file)
+    {
+        return -1;
+    }
+
+    inode_t *inode = file->inode;
+    mode_t mode = inode_acquire_mode(inode);
+    if (ISREG(mode))
+    {
+        return;
+    }
+    else if (ISCHR(mode) || ISBLK(mode))
+    {
+        // 先把设备号读出来，然后再去读取设备
+        dev_t dev;
+
+        ret = inode_read(inode, &dev, sizeof(dev_t), 0, sizeof(dev_t));
+        if (ret < 0)
+        {
+            dbg_error("devfs failz\r\n");
+            return -1;
+        }
+        dev_control(dev,cmd,arg0,arg1);
+    }
+    else
+    {
+        dbg_warning("unhandling\r\n");
+    }
+
+    return ret;
 }
 
 int sys_fsync(int fd)
 {
+    int ret;
+    file_t *file = task_file(fd);
+    if (!file)
+    {
+        return -1;
+    }
+
+    inode_t *inode = file->inode;
+    mode_t mode = inode_acquire_mode(inode);
+    if (ISREG(mode))
+    {
+        inode_fsync(inode);
+    }
+    else if (ISCHR(mode) || ISBLK(mode))
+    {
+        return ret;
+    }
+    else
+    {
+        dbg_warning("unhandling\r\n");
+    }
+
+    return ret;
 }
-int sys_opendir(const char *path, DIR *dir)
-{
-}
-int sys_readdir(DIR *dir, struct dirent *dirent)
-{
-}
-int sys_closedir(DIR *dir)
-{
-}
+
 
 int sys_link(const char *old_path, const char *new_path)
 {
+    if (!old_path || !new_path)
+    {
+        dbg_error("Invalid path\r\n");
+        return -1;
+    }
+
+    // 解析 old_path，获取目标文件的 inode
+    inode_t *target_inode = sys_namei(old_path);
+    if (!target_inode)
+    {
+        dbg_error("Target file not found\r\n");
+        return -1;
+    }
+
+    // 检查目标文件是否是目录（不允许对目录创建硬链接）
+    if (ISDIR(inode_acquire_mode(target_inode)))
+    {
+        dbg_error("Cannot create hard link to a directory\r\n");
+        return -1;
+    }
+
+    // 解析 new_path，获取父目录的 inode
+    const char* parent_path = path_dirname(new_path);
+    inode_t *parent_inode = sys_namei(parent_path);
+    if (!parent_inode)
+    {
+        dbg_error("Parent directory not found\r\n");
+        return -1;
+    }
+
+    // 获取新链接的名称
+    char *link_name = path_basename(new_path);
+    if (!link_name)
+    {
+        dbg_error("Invalid link name\r\n");
+        return -1;
+    }
+
+    // 检查新路径是否已经存在
+    struct dirent entry;
+    
+    if (parent_inode->ops->find_entry(parent_inode, link_name, &entry) >= 0)
+    {
+        dbg_error("Link name already exists\r\n");
+        return -1;
+    }
+
+    // 在父目录中添加新目录项，指向目标文件的 inode (不用创建新的inode）
+    struct dirent new_entry;
+    new_entry.nr = target_inode->nr;
+    strcpy(new_entry.name,link_name);
+    if (parent_inode->ops->add_entry(parent_inode,&new_entry ) < 0)
+    {
+        dbg_error("Failed to add directory entry\r\n");
+        return -1;
+    }
+
+    // 增加目标文件的硬链接计数
+    inode_modify_nlinks(target_inode,inode_acquire_nlinks(target_inode)+1);
+    
+
+    return 0;
 }
 int sys_unlink(const char *path)
 {
+    if (!path)
+    {
+        dbg_error("Invalid path\r\n");
+        return -1;
+    }
+
+    // 解析 path，获取目标文件的 inode
+    inode_t *target_inode = sys_namei(path);
+    if (!target_inode)
+    {
+        dbg_error("Target file not found\r\n");
+        return -1;
+    }
+
+    // 检查目标文件是否是目录（不允许删除目录）
+    if (ISDIR(inode_acquire_mode(target_inode)))
+    {
+        dbg_error("Cannot unlink a directory\r\n");
+        return -1;
+    }
+
+    // 解析 path，获取父目录的 inode
+    const char* parent_path = path_dirname(path);
+    inode_t *parent_inode = sys_namei(parent_path);
+    if (!parent_inode)
+    {
+        dbg_error("Parent directory not found\r\n");
+        return -1;
+    }
+
+    // 获取要删除的文件名
+    char *file_name = path_basename(path);
+    if (!file_name)
+    {
+        dbg_error("Invalid file name\r\n");
+        return -1;
+    }
+
+    // 在父目录中删除目标文件的目录项
+    struct dirent parent_entry;
+    strcpy(parent_entry.name,file_name);
+    
+    if (parent_inode->ops->delete_entry(parent_inode,&parent_entry) < 0)
+    {
+        dbg_error("Failed to delete directory entry\r\n");
+        return -1;
+    }
+
+    // 减少目标文件的硬链接计数
+    inode_modify_nlinks(target_inode,inode_acquire_nlinks(target_inode)-1);
+
+    // 如果硬链接计数为 0，并且没有进程打开该文件，则释放 inode 和数据块
+    if (inode_acquire_nlinks(target_inode) == 0 && target_inode->ref==0)
+    {
+        // 释放 inode 和数据块
+        inode_truncate(target_inode, 0);
+        inode_free(target_inode->dev,target_inode->nr);
+        
+    }
+    return 0;
 }
 int sys_mkdir(const char *path, uint16_t mode)
 {
+    if (!path)
+    {
+        dbg_error("Invalid path\r\n");
+        return -1;
+    }
+
+    
+    // 解析 path，获取父目录的 inode
+    const char* parent_path = path_dirname(path);
+    inode_t *parent_inode = sys_namei(parent_path);
+    if (!parent_inode)
+    {
+        dbg_error("Parent directory not found\r\n");
+        return -1;
+    }
+
+    // 获取要创建的文件名
+    char *file_name = path_basename(path);
+    if (!file_name)
+    {
+        dbg_error("Invalid file name\r\n");
+        return -1;
+    }
+
+    return inode_mkdir(parent_inode,file_name,mode);
+
 }
 
 int sys_rmdir(const char *path)
 {
+    if (!path)
+    {
+        dbg_error("Invalid path\r\n");
+        return -1;
+    }
+
+    
+    // 解析 path，获取父目录的 inode
+    const char* parent_path = path_dirname(path);
+    inode_t *parent_inode = sys_namei(parent_path);
+    if (!parent_inode)
+    {
+        dbg_error("Parent directory not found\r\n");
+        return -1;
+    }
+
+    // 获取要创建的文件名
+    char *file_name = path_basename(path);
+    if (!file_name)
+    {
+        dbg_error("Invalid file name\r\n");
+        return -1;
+    }
+
+    return inode_rmdir(parent_inode,file_name);
 }
 static list_t mount_list;
 /**
@@ -561,9 +814,75 @@ mount_point_t *find_point_by_inode(inode_t *inode)
 }
 int sys_mount(const char *path, int major, int minor, fs_type_t type)
 {
+    if (!path || !path_is_absolute(path)) {
+        dbg_error("Invalid path\r\n");
+        return -1;
+    }
+
+    // 获取挂载点的 inode
+    inode_t *mount_inode = sys_namei(path);
+    if (!mount_inode) {
+        dbg_error("Mount point not found\r\n");
+        return -1;
+    }
+
+    // 检查挂载点是否已经被挂载
+    if (mount_inode->mount) {
+        dbg_error("Mount point already mounted\r\n");
+        return -1;
+    }
+
+    // 创建挂载点结构
+    mount_point_t *point = (mount_point_t *)kmalloc(sizeof(mount_point_t));
+    if (!point) {
+        dbg_error("Failed to allocate mount point\r\n");
+        return -1;
+    }
+
+    // 初始化挂载点信息
+    strncpy(point->point_path, path, MAX_PATH_BUF - 1);
+    point->point_path[MAX_PATH_BUF - 1] = '\0';
+    point->dev = MKDEV(major, minor);
+    point->type = type;
+    point->orign_dev = mount_inode->dev;
+    point->orign_type = mount_inode->type;
+    point->ipoint = mount_inode;
+
+    // 将挂载点添加到挂载列表
+    list_insert_last(&mount_list, &point->node);
+
+    // 标记 inode 为已挂载状态
+    mount_inode->mount = true;
+
+    return 0;
 }
 int sys_unmount(const char *path)
 {
+    if (!path || !path_is_absolute(path)) {
+        dbg_error("Invalid path\r\n");
+        return -1;
+    }
+
+    // 查找挂载点结构
+    mount_point_t *point = find_point_by_abspath(path);
+    if (!point) {
+        dbg_error("Mount point not found\r\n");
+        return -1;
+    }
+
+    // 恢复原始设备信息
+    inode_t *mount_inode = point->ipoint;
+    mount_inode->dev = point->orign_dev;
+    mount_inode->type = point->orign_type;
+    mount_inode->mount = false;
+
+    // 从挂载列表中移除
+    list_remove(&mount_list, &point->node);
+
+    // 释放挂载点结构
+    kfree(point);
+
+    return 0;
 }
 extern void fs_buffer_init(void);
 /**挂载根文件系统 */
@@ -591,9 +910,7 @@ void fs_init(void)
     minixfs_init();
     mount_root_fs();
 }
-void fs_register(fs_type_t type, fs_op_t *opt)
-{
-}
+
 /**
  * @brief 获取根文件系统节点
  */
