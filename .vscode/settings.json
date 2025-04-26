@@ -25,6 +25,15 @@
         "gbitmap.h": "c",
         "stat.h": "c",
         "ide.h": "c",
-        "ramdisk.h": "c"
+        "ramdisk.h": "c",
+        "netif.h": "c",
+        "msgq.h": "c",
+        "net_threads.h": "c",
+        "package.h": "c",
+        "ipaddr.h": "c",
+        "mutex.h": "c",
+        "semaphore.h": "c",
+        "arp.h": "c",
+        "sock.h": "c"
     }
 }

@@ -5,7 +5,7 @@ include ../../Makefile.common
 
 # 手动配置项
 PROJECT := kernel
-INCLUDE := ../os_config  ../include ../lib/include
+INCLUDE := ../os_config  ../include ../lib/include ../include/net
 SRCDIR := 
 LIBDIR := ../lib
 

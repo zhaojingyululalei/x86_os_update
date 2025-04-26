@@ -44,7 +44,7 @@
 			"errno.h": "c",
 			"task.h": "c",
 			"page.h": "c",
-			"list.h": "c",
+			"tools/list.h": "c",
 			"bitmap.h": "c",
 			"buddy_system.h": "c",
 			"math.h": "c",
